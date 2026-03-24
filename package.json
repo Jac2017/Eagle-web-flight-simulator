@@ -1,15 +1,26 @@
 {
-	"name": "web-flight-simulator",
-	"version": "1.0.0",
-	"description": "",
+	"name": "shadows-hunt-big-bear-valley",
+	"version": "2.0.0",
+	"description": "Shadow's Hunt - A bald eagle flight simulator set in Big Bear Valley, California. Fly as Shadow the eagle with realistic wing-based physics, 3D forests, reflective lakes, and a 500-mile hunting territory. Supports desktop and mobile with gyroscope tilt controls.",
 	"main": "index.js",
 	"scripts": {
 		"dev": "vite",
 		"build": "vite build",
 		"preview": "vite preview",
+		"start": "vite",
+		"serve": "vite preview --host 0.0.0.0",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
-	"keywords": [],
+	"keywords": [
+		"eagle",
+		"flight-simulator",
+		"big-bear-valley",
+		"cesium",
+		"threejs",
+		"webgl",
+		"mobile",
+		"gyroscope"
+	],
 	"author": "",
 	"license": "ISC",
 	"type": "module",
