@@ -34,6 +34,13 @@ export class HUD {
 
 		this.pullUpElem = document.getElementById('pull-up-warning');
 
+		// Eagle flight status elements
+		this.flightModeElem = document.getElementById('flight-mode-indicator');
+		this.thermalIndicator = document.getElementById('thermal-indicator');
+		this.wingSpreadBar = document.getElementById('wing-spread-bar');
+		this.liftValueElem = document.getElementById('lift-value');
+		this.vspeedValueElem = document.getElementById('vspeed-value');
+
 		this.killNotifContainer = document.getElementById('kill-notification-container');
 		this.killTextElem = document.getElementById('kill-text');
 		this.killScoreElem = document.getElementById('kill-score');
@@ -273,6 +280,62 @@ export class HUD {
 				this.regionTimeout = null;
 			}, 1000);
 		}, 4000);
+	}
+
+	updateEagleStatus(state) {
+		// Flight mode indicator
+		if (this.flightModeElem) {
+			let mode = 'SOARING';
+			let modeClass = '';
+
+			if (state.isBoosting) {
+				mode = 'DIVING';
+				modeClass = 'diving';
+			} else if (state.isGliding) {
+				mode = 'GLIDING';
+				modeClass = 'gliding';
+			} else if (state.inThermal) {
+				mode = 'RIDING THERMAL';
+				modeClass = 'thermal';
+			} else if (state.throttle > 0.6) {
+				mode = 'FLAPPING';
+				modeClass = '';
+			}
+
+			this.flightModeElem.textContent = mode;
+			this.flightModeElem.className = modeClass;
+		}
+
+		// Thermal indicator
+		if (this.thermalIndicator) {
+			if (state.inThermal) {
+				this.thermalIndicator.classList.remove('hidden');
+				const strength = Math.round((state.thermalStrength || 0) * 100);
+				this.thermalIndicator.textContent = `THERMAL ${strength}%`;
+			} else {
+				this.thermalIndicator.classList.add('hidden');
+			}
+		}
+
+		// Wing spread bar
+		if (this.wingSpreadBar) {
+			const spread = (state.wingSpread || 1.0) * 100;
+			this.wingSpreadBar.style.width = `${spread}%`;
+		}
+
+		// Lift value
+		if (this.liftValueElem) {
+			const lift = state.liftForce || 0;
+			this.liftValueElem.textContent = lift.toFixed(1);
+		}
+
+		// Vertical speed
+		if (this.vspeedValueElem) {
+			const vs = state.verticalSpeed || 0;
+			const vsFpm = Math.round(vs * 196.85); // m/s to ft/min approx
+			this.vspeedValueElem.textContent = `${vsFpm > 0 ? '+' : ''}${vsFpm}`;
+			this.vspeedValueElem.className = vsFpm > 10 ? 'climbing' : (vsFpm < -10 ? 'descending' : '');
+		}
 	}
 
 	setPullUpWarning(shouldShow) {
@@ -557,6 +620,9 @@ export class HUD {
 		}
 
 		this.speedElem.innerText = Math.round(state.speed).toString().padStart(3, '0');
+
+		// Update eagle flight status indicators
+		this.updateEagleStatus(state);
 
 		if (state.weaponSystem) {
 			this.updateWeapons(state.weaponSystem);

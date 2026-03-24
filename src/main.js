@@ -13,6 +13,9 @@ import { NPCSystem } from './systems/npcSystem';
 import { DialogueSystem } from './systems/dialogueSystem';
 import * as Cesium from 'cesium';
 import { particles } from './utils/particles';
+import { TreeSystem } from './world/treeSystem';
+import { WaterSystem } from './world/waterSystem';
+import { distanceFromCenter, distanceToBoundary, headingToCenter, isInTerritory, createTerritoryBoundary, TERRITORY_RADIUS_METERS, TERRITORY_CENTER } from './world/territory';
 
 const States = {
 	MENU: 'MENU',
@@ -153,6 +156,10 @@ let hud = new HUD();
 let npcSystem;
 let weaponSystem;
 let dialogueSystem = new DialogueSystem();
+let treeSystem;
+let waterSystem;
+let territoryEntities = null;
+let territoryWarningActive = false;
 
 let fps = 0;
 let frameCount = 0;
@@ -329,6 +336,19 @@ function initThree() {
 
 	try { particles.init(scene, getViewer()); } catch (e) { }
 
+	// Initialize tree and water systems
+	try {
+		treeSystem = new TreeSystem(getViewer(), scene);
+	} catch (e) {
+		console.error('Failed to init tree system', e);
+	}
+
+	try {
+		waterSystem = new WaterSystem(getViewer(), scene);
+	} catch (e) {
+		console.error('Failed to init water system', e);
+	}
+
 	initSounds().catch(err => console.error('Failed to init sounds', err));
 
 	const loader = new GLTFLoader();
@@ -398,6 +418,14 @@ function update(dt) {
 	state.isBoosting = physicsResult.isBoosting;
 	state.weaponSystem = weaponSystem;
 	state.npcs = npcSystem ? npcSystem.npcs : [];
+
+	// Eagle-specific flight state
+	state.isGliding = physicsResult.isGliding;
+	state.wingSpread = physicsResult.wingSpread;
+	state.inThermal = physicsResult.inThermal;
+	state.thermalStrength = physicsResult.thermalStrength;
+	state.verticalSpeed = physicsResult.verticalSpeed;
+	state.liftForce = physicsResult.liftForce;
 
 	if (weaponSystem) {
 		if (input.weaponIndex !== -1) {
@@ -506,6 +534,34 @@ function update(dt) {
 	if (npcSystem) {
 		npcSystem.update(dt, state);
 	}
+
+	// Update tree and water systems
+	if (treeSystem) {
+		try { treeSystem.update(dt, state); } catch (e) { }
+	}
+	if (waterSystem) {
+		try { waterSystem.update(dt, state); } catch (e) { }
+	}
+
+	// Territory boundary check - warn if approaching edge
+	const distToEdge = distanceToBoundary(state.lon, state.lat);
+	const distToEdgeMiles = distToEdge / 1609.34;
+	if (distToEdgeMiles < 20) {
+		// Turn eagle back toward center when at boundary
+		if (distToEdge <= 0) {
+			// Outside territory - force turn back
+			const centerHeading = headingToCenter(state.lon, state.lat);
+			state.heading = THREE.MathUtils.lerp(state.heading, centerHeading, dt * 2);
+			physics.heading = state.heading;
+		}
+		if (!territoryWarningActive) {
+			territoryWarningActive = true;
+			hud.showRegion('TERRITORY BOUNDARY - TURN BACK');
+		}
+	} else {
+		territoryWarningActive = false;
+	}
+
 	hud.update(state, currentState === States.FLYING ? (npcSystem ? npcSystem.npcs : []) : []);
 
 	if (planeModel) {
@@ -1175,6 +1231,9 @@ document.getElementById('confirmSpawnBtn').onclick = () => {
 		physics = new PlanePhysics();
 		physics.reset(state.lon, state.lat, state.alt, state.heading, state.pitch, state.roll);
 
+		// Clear tree positions for new spawn location
+		if (treeSystem) treeSystem.clear();
+
 		hud.resetTime();
 		hud.resizeMinimap();
 
@@ -1348,6 +1407,14 @@ initialCameraView = {
 
 initThree();
 npcSystem = new NPCSystem(viewer, scene, new GLTFLoader());
+
+// Create territory boundary on the map
+try {
+	territoryEntities = createTerritoryBoundary(viewer);
+} catch (e) {
+	console.error('Failed to create territory boundary', e);
+}
+
 setupSpawnPicker();
 setupLocationSearch();
 loadSettings();
