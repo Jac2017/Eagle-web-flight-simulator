@@ -730,6 +730,7 @@ function checkCrash() {
 		if (weaponsHud) weaponsHud.classList.add('hidden');
 		threeContainer.classList.add('hidden');
 		crashMenu.classList.remove('hidden');
+		if (controller.isMobile) controller.setMobileVisible(false);
 		hud.update(state, []);
 
 		stopAllFlyingSounds(0.1);
@@ -872,8 +873,14 @@ function setupModalListeners() {
 	});
 }
 
-document.getElementById('startBtn').onclick = () => {
+document.getElementById('startBtn').onclick = async () => {
 	closeAllModals();
+
+	// On mobile, request orientation permission on first interaction (iOS requires user gesture)
+	if (controller.isMobile && !controller.tiltEnabled) {
+		await controller.requestOrientationPermission();
+	}
+
 	mainMenu.classList.add('hidden');
 	enterSpawnPicking(false);
 };
@@ -889,6 +896,7 @@ document.getElementById('resumeBtn').onclick = () => {
 	currentState = States.FLYING;
 	if (dialogueSystem) dialogueSystem.resume();
 	resumeGameplaySounds();
+	if (controller.isMobile) controller.setMobileVisible(true);
 };
 
 document.getElementById('restartBtn').onclick = () => {
@@ -1272,6 +1280,24 @@ document.getElementById('confirmSpawnBtn').onclick = () => {
 				soundManager.play('jet-engine', 1.0);
 				if (vignette) vignette.style.opacity = '0';
 
+				// Show mobile controls when entering flight
+				if (controller.isMobile) {
+					controller.setMobileVisible(true);
+					controller.calibrateTilt();
+					// Request fullscreen on mobile for better experience
+					try {
+						if (document.documentElement.requestFullscreen) {
+							document.documentElement.requestFullscreen().catch(() => {});
+						} else if (document.documentElement.webkitRequestFullscreen) {
+							document.documentElement.webkitRequestFullscreen();
+						}
+						// Lock to landscape if supported
+						if (screen.orientation && screen.orientation.lock) {
+							screen.orientation.lock('landscape').catch(() => {});
+						}
+					} catch (e) {}
+				}
+
 				if (dialogueSystem) {
 					dialogueSystem.start();
 				}
@@ -1301,6 +1327,7 @@ window.addEventListener('keydown', (e) => {
 			hud.resizeMinimap();
 			pauseGameplaySounds();
 			hud.update(state, []);
+			if (controller.isMobile) controller.setMobileVisible(false);
 		} else if (currentState === States.PAUSED) {
 			currentState = States.FLYING;
 			if (dialogueSystem) dialogueSystem.resume();
@@ -1309,6 +1336,7 @@ window.addEventListener('keydown', (e) => {
 			const weaponsHud = document.getElementById('weapons-hud');
 			if (weaponsHud) weaponsHud.classList.remove('hidden');
 			resumeGameplaySounds();
+			if (controller.isMobile) controller.setMobileVisible(true);
 		} else if (currentState === States.PICK_SPAWN && key === 'escape') {
 			exitSpawnPicking();
 		}
@@ -1328,6 +1356,7 @@ document.addEventListener('visibilitychange', () => {
 		hud.resizeMinimap();
 		pauseGameplaySounds();
 		hud.update(state, []);
+		if (controller.isMobile) controller.setMobileVisible(false);
 	}
 });
 
