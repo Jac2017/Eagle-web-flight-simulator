@@ -4,7 +4,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Web Flight Simulator</title>
+	<title>Shadow's Hunt - Big Bear Valley</title>
 	<link rel="icon" type="image/x-icon" href="/favicon.ico">
 	<link rel="stylesheet" href="/src/style.css">
 </head>
@@ -19,10 +19,10 @@
 			<div class="menu-content">
 				<div class="menu-header">
 					<div class="menu-logo">
-						<span class="logo-main">WEB FLIGHT</span>
-						<span class="logo-sub">SIMULATOR</span>
+						<span class="logo-main">SHADOW'S</span>
+						<span class="logo-sub">HUNT</span>
 					</div>
-					<div class="menu-version">VER 1.0.0</div>
+					<div class="menu-version">BIG BEAR VALLEY v1.0</div>
 				</div>
 				
 				<div class="menu-main">
@@ -30,17 +30,17 @@
 						<button id="startBtn" class="main-menu-btn" disabled>
 							<span class="btn-top">01</span>
 							<span class="btn-mid">START GAME</span>
-							<span class="btn-bot">COMMENCE FLIGHT OPERATIONS</span>
+							<span class="btn-bot">TAKE FLIGHT FROM THE NEST</span>
 						</button>
 						<button id="optionsBtn" class="main-menu-btn">
 							<span class="btn-top">02</span>
-							<span class="btn-mid">SYSTEM CONFIG</span>
-							<span class="btn-bot">ADJUST HARDWARE SETTINGS</span>
+							<span class="btn-mid">SETTINGS</span>
+							<span class="btn-bot">ADJUST GAME SETTINGS</span>
 						</button>
 						<button id="helpBtn" class="main-menu-btn">
 							<span class="btn-top">03</span>
-							<span class="btn-mid">OPERATIONS MANUAL</span>
-							<span class="btn-bot">FLIGHT CONTROLS & PROCEDURES</span>
+							<span class="btn-mid">FLIGHT GUIDE</span>
+							<span class="btn-bot">EAGLE CONTROLS & HUNTING TIPS</span>
 						</button>
 						<button id="creditsBtn" class="main-menu-btn">
 							<span class="btn-top">04</span>
@@ -57,10 +57,10 @@
 
 				<div class="menu-footer">
 					<div class="footer-status">
-						<span class="time-label">CURRENT TIME (ZULU):</span>
+						<span class="time-label">CURRENT TIME:</span>
 						<span id="menu-time" class="time-value">2026-01-01T00:00:00Z</span>
 					</div>
-					<div class="footer-instruction">SELECT COMMAND TO PROCEED</div>
+					<div class="footer-instruction">SELECT TO PROCEED</div>
 				</div>
 			</div>
 		</div>
@@ -73,7 +73,7 @@
 
 	<div id="optionsModal" class="modal hidden">
 		<div class="modal-header">
-			<div class="modal-title">SYSTEM CONFIG</div>
+			<div class="modal-title">SETTINGS</div>
 			<button class="close-modal">CLOSE</button>
 		</div>
 		<div class="modal-body">
@@ -95,7 +95,7 @@
 				<input type="checkbox" id="fogEffects" checked>
 			</div>
 
-			<h3>FLIGHT CONTROL</h3>
+			<h3>EAGLE CONTROL</h3>
 
 			<div class="setting-item">
 				<span>Mouse Sensitivity</span>
@@ -135,11 +135,11 @@
 
 	<div id="helpModal" class="modal hidden">
 		<div class="modal-header">
-			<div class="modal-title">OPERATIONS MANUAL</div>
+			<div class="modal-title">FLIGHT GUIDE</div>
 			<button class="close-modal">CLOSE</button>
 		</div>
 		<div class="modal-body">
-			<h3>FLIGHT CONTROL</h3>
+			<h3>EAGLE FLIGHT</h3>
 			<div class="control-grid">
 				<div class="key">UP / DOWN</div>
 				<div>Pitch Down / Up</div>
@@ -150,16 +150,16 @@
 				<div class="key">W / S</div>
 				<div>Throttle +/-</div>
 				<div class="key">SPACE</div>
-				<div>Afterburner (Boost)</div>
+				<div>Power Dive (Boost)</div>
 			</div>
-			<h3>COMBAT SYSTEMS</h3>
+			<h3>HUNTING CONTROLS</h3>
 			<div class="control-grid">
 				<div class="key">1 / 2 / Q</div>
-				<div>Switch Weapons</div>
+				<div>Switch Attack Mode</div>
 				<div class="key">F / ENTER</div>
-				<div>Fire Selected Weapon</div>
+				<div>Talon Strike / Catch Prey</div>
 				<div class="key">V</div>
-				<div>Release Flares</div>
+				<div>Eagle Screech (Scare Ravens)</div>
 			</div>
 			<h3>NAVIGATION</h3>
 			<div class="control-grid">
@@ -235,12 +235,12 @@
 			<div class="pause-sidebar">
 				<div class="pause-header">
 					<h2 class="pause-title">PAUSED</h2>
-					<div class="pause-subtitle">SYSTEM HOLD</div>
+					<div class="pause-subtitle">PERCHED</div>
 				</div>
 				<nav class="pause-nav">
 					<button id="resumeBtn" class="pause-btn">
 						<span class="btn-label">RESUME</span>
-						<span class="btn-desc">RETURN TO FLIGHT</span>
+						<span class="btn-desc">RETURN TO HUNT</span>
 					</button>
 					<button id="restartBtn" class="pause-btn">
 						<span class="btn-label">RESTART</span>
@@ -263,8 +263,8 @@
 			<div class="pause-main">
 				<div class="pause-map-wrapper">
 					<div class="map-header">
-						<span class="map-title">TACTICAL MAP</span>
-						<span id="pause-region" class="map-location">UNKNOWN REGION</span>
+						<span class="map-title">TERRITORY MAP</span>
+						<span id="pause-region" class="map-location">UNKNOWN TERRITORY</span>
 					</div>
 					<div id="pause-minimap-container">
 						<div id="pauseMinimapCesium"></div>
@@ -294,15 +294,15 @@
 	</div>
 
 	<div id="crashMenu" class="overlay hidden">
-		<h2 class="menu-title crash-header">AIRCRAFT DESTROYED</h2>
-		<button id="respawnBtn" class="menu-btn">RESPAWN</button>
+		<h2 class="menu-title crash-header">SHADOW IS GROUNDED</h2>
+		<button id="respawnBtn" class="menu-btn">RETURN TO NEST</button>
 	</div>
 
 	<div id="spawnInstruction" class="hidden">
 		<div id="spawn-top-ui" class="spawn-hud-top">
 			<div id="spawn-instruction">
-				<span id="instruction-text">CLICK ANYWHERE ON THE MAP TO CHOOSE SPAWN POINT</span>
-				<input type="text" id="locationSearch" placeholder="ENTER LOCATION NAME...">
+				<span id="instruction-text">CLICK ANYWHERE TO CHOOSE HUNTING GROUNDS</span>
+				<input type="text" id="locationSearch" placeholder="SEARCH FOR HUNTING GROUNDS...">
 				<div id="search-results">
 				</div>
 			</div>
@@ -326,7 +326,7 @@
 
 		<div id="hud-top-left">
 			TIME <span id="time">00:00:00</span><br>
-			SCORE <span id="score">000000</span>
+			PREY <span id="score">000000</span>
 		</div>
 
 		<div id="hud-top-right">
@@ -358,31 +358,31 @@
 		<div id="pull-up-warning" class="hidden">PULL UP</div>
 
 		<div id="kill-notification-container" class="hidden">
-			<div id="kill-text">ENEMY DESTROYED</div>
-			<div id="kill-score">+1000</div>
+			<div id="kill-text">PREY CAUGHT!</div>
+			<div id="kill-score">+500</div>
 		</div>
 
 		<div id="weapons-hud">
 			<div id="weapon-list">
 				<div class="weapon-item active" id="weapon-gun">
 					<div class="weapon-progress"></div>
-					<span class="weapon-name">M61A1 VULCAN</span>
+					<span class="weapon-name">TALON STRIKE</span>
 					<span class="weapon-ammo">00</span>
 				</div>
 				<div class="weapon-item" id="weapon-missile">
 					<div class="weapon-progress"></div>
-					<span class="weapon-name">AIM-9 SIDEWINDER</span>
+					<span class="weapon-name">DIVE ATTACK</span>
 					<span class="weapon-ammo">00</span>
 				</div>
 				<div class="weapon-item" id="weapon-flare">
 					<div class="weapon-progress"></div>
-					<span class="weapon-name">MJU-7A</span>
+					<span class="weapon-name">EAGLE SCREECH</span>
 					<span class="weapon-ammo">00</span>
 				</div>
 			</div>
 			<div id="aircraft-icon">
-				<img src="/assets/images/f-15.svg" alt="F-15 Icon">
-				<div id="aircraft-label">F-15</div>
+				<span style="font-size:32px;">🦅</span>
+				<div id="aircraft-label">SHADOW</div>
 			</div>
 		</div>
 
@@ -392,15 +392,14 @@
 		</div>
 
 		<div id="game-credits">
-			WEB FLIGHT SIMULATOR | CREATED BY <a href="https://tarmizi.id" target="_blank">DIMAR TARMIZI</a> |
-			<a href="https://github.com/dimartarmizi/web-flight-simulator" target="_blank">GITHUB REPOSITORY</a>
+			SHADOW'S HUNT - BIG BEAR VALLEY | ADAPTED BY CLAUDE
 		</div>
 
 		<div id="dialogue-container" class="hidden">
 			<div class="dialogue-box">
-				<img id="commander-img" src="/assets/images/commander-dimar-tarmizi.jpg" alt="Commander">
+				<img id="commander-img" src="" alt="Jackie">
 				<div class="dialogue-content">
-					<div class="commander-name">COMMANDER DIMAR TARMIZI</div>
+					<div class="commander-name">JACKIE (AT THE NEST)</div>
 					<div id="dialogue-text"></div>
 					<div class="dialogue-hint">Press Z to skip</div>
 				</div>

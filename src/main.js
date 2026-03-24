@@ -118,9 +118,9 @@ function applySettings() {
 }
 
 let state = {
-	lon: 106.8272,
-	lat: -6.1754,
-	alt: 1000,
+	lon: -116.9114,
+	lat: 34.2439,
+	alt: 2500,
 	heading: 0,
 	pitch: 0,
 	roll: 0,
@@ -130,17 +130,7 @@ let state = {
 	weaponSystem: null
 };
 
-async function initUserLocation() {
-	try {
-		const data = await (await fetch('https://ipapi.co/json/')).json();
-		if (data.latitude && data.longitude) {
-			state.lat = data.latitude;
-			state.lon = data.longitude;
-		}
-	} catch (e) { }
-}
-
-initUserLocation();
+// Big Bear Valley is always the spawn location
 
 let currentRegionName = null;
 let lastGeocodeTime = 0;
@@ -216,7 +206,7 @@ function updateLoadingUI() {
 		msg = "Loading Failed. Please Refresh.";
 	} else if (!isAllLoaded) {
 		if (!loadingStatus.audio) msg = "Loading Audio...";
-		else if (!loadingStatus.model) msg = "Loading Aircraft Model...";
+		else if (!loadingStatus.model) msg = "Loading Eagle Model...";
 		else if (!loadingStatus.cesium) msg = "Loading Satellite Imagery...";
 		else if (!loadingStatus.globe) msg = "Loading Globe Surface...";
 	}
@@ -359,25 +349,16 @@ function initThree() {
 		mesh.position.sub(center);
 
 		planeModel.position.copy(BASE_PLANE_POS);
-		planeModel.scale.set(0.2, 0.2, 0.2);
+		planeModel.scale.set(0.15, 0.15, 0.15);
 
-		const flameL = new JetFlame();
-		const flameR = new JetFlame();
-
-		flameL.group.position.set(-0.4, -0.065, 5);
-		flameR.group.position.set(0.4, -0.065, 5);
-
-
-		planeModel.add(flameL.group);
-		planeModel.add(flameR.group);
-		jetFlames.push(flameL, flameR);
+		// No jet flames for eagle
 
 		weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
 		weaponSystem.onKill = (npc) => {
-			state.score += 1000;
+			state.score += 500;
 			try { soundManager.play('glitch-random'); } catch (e) { }
 			if (hud) {
-				hud.showKillNotification(npc.name, 1000);
+				hud.showKillNotification(npc.name, 500);
 			}
 		};
 
@@ -458,10 +439,10 @@ function update(dt) {
 	checkGPWS();
 
 	if (soundManager.isPlaying('jet-engine')) {
-		const minSpeed = 100;
-		const maxSpeed = 1000;
-		const minVol = 0.5;
-		const maxVol = 0.6;
+		const minSpeed = 20;
+		const maxSpeed = 120;
+		const minVol = 0.3;
+		const maxVol = 0.5;
 		const speedFactor = Math.max(0, Math.min(1.0, (state.speed - minSpeed) / (maxSpeed - minSpeed)));
 		const engineVol = minVol + speedFactor * (maxVol - minVol);
 		soundManager.setVolume('jet-engine', engineVol);
@@ -614,11 +595,7 @@ function update(dt) {
 		const combinedQ = orbitQ.clone().invert().multiply(flightLagQ);
 		planeModel.quaternion.copy(combinedQ);
 
-		if (jetFlames.length > 0) {
-			jetFlames.forEach(flame => {
-				flame.update(state.throttle, state.isBoosting, clock.getElapsedTime(), dt);
-			});
-		}
+		// Eagle has no jet flames
 	}
 }
 
@@ -909,7 +886,7 @@ function enterSpawnPicking(useVignette = true) {
 		}
 		if (instructionText) {
 			instructionText.style.display = 'block';
-			instructionText.textContent = 'CLICK ANYWHERE ON THE MAP TO CHOOSE SPAWN POINT';
+			instructionText.textContent = 'CLICK ANYWHERE TO CHOOSE YOUR HUNTING GROUNDS';
 		}
 		if (resultsContainer) {
 			resultsContainer.style.display = 'none';
@@ -1169,7 +1146,7 @@ document.getElementById('confirmSpawnBtn').onclick = () => {
 
 		setControlsEnabled(false);
 
-		state.speed = 100;
+		state.speed = 30;
 		state.pitch = 0;
 		state.roll = 0;
 

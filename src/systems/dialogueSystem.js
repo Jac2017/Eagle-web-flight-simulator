@@ -5,18 +5,18 @@ export class DialogueSystem {
 		this.container = document.getElementById('dialogue-container');
 		this.textElem = document.getElementById('dialogue-text');
 		this.dialogues = [
-			"Welcome, Pilot. I am Commander Dimar Tarmizi. I will be your flight instructor today.",
-			"You are currently piloting the F-15 Eaglehawk, an advanced air superiority fighter.",
-			"Check your HUD. The left box shows your SPEED in knots, and the right box shows your ALTITUDE.",
-			"The compass at the top shows your heading, and the crosshair in the center helps you level your flight.",
-			"Your weapons are armed. You have the M61A1 Vulcan Cannon and AIM-9 Sidewinder missiles.",
-			"Use 'W' and 'S' to control your throttle. Keep an eye on your energy state.",
-			"Control your pitch and roll with the ARROW keys. Use 'A' and 'D' for rudder control.",
-			"Engage afterburners with SPACE for maximum thrust, but watch your fuel consumption.",
-			"Cycle your weapons with '1', '2', or 'Q'. Press 'F' or ENTER to engage your targets.",
-			"If you detect an incoming threat, press 'V' to release flares and break the lock.",
-			"The tactical minimap at the bottom right shows your radar contacts and current region.",
-			"Good luck out there, Pilot. Commander Tarmizi, out."
+			"Shadow! It's Jackie, calling from the nest. The eaglets are hungry - time to hunt!",
+			"You're soaring above Big Bear Valley. Our Jeffrey pine nest is your home base.",
+			"Check your display - SPEED on the left shows how fast you're flying, ALTITUDE on the right.",
+			"The compass at the top shows your heading. Use it to navigate back to the lake for fish.",
+			"Your talons are ready! Use TALON STRIKE for quick catches, or DIVE ATTACK for bigger prey.",
+			"Use 'W' and 'S' to control your wing speed. Glide to conserve energy.",
+			"Control your flight with ARROW keys for pitch and roll. 'A' and 'D' for turning.",
+			"Press SPACE to power dive - you can reach incredible speeds swooping down!",
+			"Switch hunting modes with '1', '2', or 'Q'. Press 'F' or ENTER to strike!",
+			"Watch out for ravens! Press 'V' to screech and scare them away from our territory.",
+			"The territory map shows prey and ravens nearby. Hunt the fish in Big Bear Lake!",
+			"Good hunting, Shadow! Bring food back for our eaglets. Jackie, out."
 		];
 		this.currentIndex = 0;
 		this.isActive = false;

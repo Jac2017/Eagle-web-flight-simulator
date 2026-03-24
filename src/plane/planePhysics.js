@@ -2,12 +2,12 @@ import * as THREE from 'three';
 
 export class PlanePhysics {
 	constructor() {
-		this.speed = 100;
-		this.maxSpeed = 1000;
-		this.minSpeed = 100;
-		this.throttle = 0.5;
+		this.speed = 30;
+		this.maxSpeed = 120;
+		this.minSpeed = 20;
+		this.throttle = 0.3;
 		this.enginePower = 1.2;
-		this.drag = 0.005;
+		this.drag = 0.008;
 		this.liftFactor = 0.002;
 		this.gravity = 9.8;
 
@@ -15,15 +15,15 @@ export class PlanePhysics {
 		this.roll = 0;
 		this.heading = 0;
 
-		this.pitchRate = 1.2;
-		this.rollRate = 2.5;
-		this.yawRate = 0.5;
+		this.pitchRate = 1.8;
+		this.rollRate = 3.0;
+		this.yawRate = 0.8;
 
 		this.isBoosting = false;
 		this.boostTimeRemaining = 0;
-		this.boostDuration = 2.5;
-		this.boostMultiplier = 1.5;
-		this.boostRotations = 2;
+		this.boostDuration = 3.0;
+		this.boostMultiplier = 2.0;
+		this.boostRotations = 1;
 		this.boostPressed = false;
 
 		this.quaternion = new THREE.Quaternion();

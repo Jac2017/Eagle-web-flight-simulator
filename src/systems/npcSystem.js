@@ -8,7 +8,7 @@ export class NPCSystem {
 		this.scene = scene;
 		this.loader = loader;
 		this.npcs = [];
-		this.npcNames = ['PHOENIX', 'MARVEL', 'VIPER', 'GHOST', 'RAVEN', 'EAGLE', 'FALCON', 'BLADE', 'STRIKER', 'STORM', 'KNIGHT', 'TITAN'];
+		this.npcNames = ['RAVEN', 'RAVEN', 'RAVEN', 'TROUT', 'BASS', 'RABBIT', 'SQUIRREL', 'MOUSE', 'RAVEN', 'CROW'];
 		this.lastSpawnTime = 0;
 		this.modelTemplate = null;
 		this.animations = [];
@@ -41,7 +41,7 @@ export class NPCSystem {
 		if (!this.loaded) return null;
 
 		const angle = Math.random() * Math.PI * 2;
-		const dist = 5000 + Math.random() * 15000;
+		const dist = 1000 + Math.random() * 5000;
 
 		const lonOffset = (dist * Math.cos(angle)) / (111320 * Math.cos(Cesium.Math.toRadians(playerLat)));
 		const latOffset = (dist * Math.sin(angle)) / 111320;
@@ -50,9 +50,9 @@ export class NPCSystem {
 
 		const lon = playerLon + lonOffset;
 		const lat = playerLat + latOffset;
-		const alt = Math.max(playerAlt + (Math.random() - 0.5) * 1000, 1500);
+		const alt = Math.max(playerAlt - 200 + (Math.random() - 0.5) * 400, 2100);
 
-		return this.createNPCMesh(name, lon, lat, alt, Math.random() * 360, 250 + Math.random() * 100);
+		return this.createNPCMesh(name, lon, lat, alt, Math.random() * 360, 15 + Math.random() * 30);
 	}
 
 	createNPCMesh(name, lon, lat, alt, heading, speed) {
@@ -62,7 +62,7 @@ export class NPCSystem {
 		const model = this.modelTemplate.clone();
 
 		model.rotation.x = Math.PI / 2;
-		model.scale.set(1.0, 1.0, 1.0);
+		model.scale.set(0.3, 0.3, 0.3);
 
 		group.add(model);
 		group.matrixAutoUpdate = false;
@@ -86,7 +86,7 @@ export class NPCSystem {
 			heading: heading,
 			pitch: 0, roll: 0,
 			speed: speed,
-			throttle: 0.7,
+			throttle: 0.4,
 			isBoosting: false,
 			targetHeading: heading,
 			targetPitch: 0,
@@ -117,11 +117,11 @@ export class NPCSystem {
 			npc.terrainCheckTimer -= dt;
 
 			if (npc.behaviorTimer <= 0) {
-				npc.targetHeading = (npc.heading + (Math.random() - 0.5) * 120) % 360;
-				npc.targetPitch = (Math.random() - 0.5) * 25;
-				npc.behaviorTimer = 8 + Math.random() * 15;
-				npc.isBoosting = Math.random() > 0.7;
-				npc.throttle = 0.6 + Math.random() * 0.4;
+				npc.targetHeading = (npc.heading + (Math.random() - 0.5) * 180) % 360;
+				npc.targetPitch = (Math.random() - 0.5) * 15;
+				npc.behaviorTimer = 3 + Math.random() * 8;
+				npc.isBoosting = Math.random() > 0.8;
+				npc.throttle = 0.3 + Math.random() * 0.5;
 			}
 
 			if (npc.terrainCheckTimer <= 0) {
@@ -130,11 +130,11 @@ export class NPCSystem {
 				const terrainHeight = this.viewer.scene.globe.getHeight(cartographic);
 				if (terrainHeight !== undefined) {
 					const relativeAlt = npc.alt - terrainHeight;
-					if (relativeAlt < 500) {
-						npc.targetPitch = Math.max(npc.targetPitch, 25);
+					if (relativeAlt < 100) {
+						npc.targetPitch = Math.max(npc.targetPitch, 15);
 						npc.isBoosting = true;
-						npc.throttle = 1.0;
-						if (relativeAlt < 100) npc.targetPitch = 45;
+						npc.throttle = 0.8;
+						if (relativeAlt < 30) npc.targetPitch = 30;
 					}
 				}
 			}
@@ -195,7 +195,7 @@ export class NPCSystem {
 			}
 		}
 
-		if (this.npcs.length < 3 && Date.now() - this.lastSpawnTime > 5000) {
+		if (this.npcs.length < 5 && Date.now() - this.lastSpawnTime > 3000) {
 			this.spawnNPC(playerPos.lon, playerPos.lat, playerPos.alt);
 			this.lastSpawnTime = Date.now();
 		}
