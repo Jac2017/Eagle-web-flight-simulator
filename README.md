@@ -105,6 +105,8 @@ src/
     landmarks.js           # Named POI 3D structures (ski resort, Vegas, Hollywood, etc.)
     citySystem.js          # Procedural 3D buildings for 20+ major cities
     trafficSystem.js       # Highway vehicles, boats, aircraft
+    nestSystem.js          # Eagle nest with Jackie, eggs, and chicks
+    dayNightWeather.js     # Day/night cycle and weather system
     territory.js           # 500-mile territory boundary system
     regions.js             # Geolocation utilities
   systems/
@@ -370,6 +372,55 @@ The eagle's hunting range centered on Big Bear Valley:
 - **Visual boundary**: Dashed golden circle on the map with "THE NEST" marker at center
 - **Enforcement**: Eagle is gently turned back when reaching the boundary. Warning notification at 20 miles from edge.
 - **Zone names**: Dynamic region identification (e.g., "Big Bear Valley - Home Territory", "San Bernardino Mountains", "High Desert", "Pacific Coast")
+
+### Eagle Nest (`nestSystem.js`)
+
+Detailed 3D model of the Big Bear eagle cam nest - the game's home base:
+
+- **Location**: 34.2433 N, 116.9155 W, in a Jeffrey Pine at ~2,070m elevation
+- **Nest tree**: 30m tall Jeffrey Pine with 7 major branches, bark rings, and 8 foliage clusters
+- **The nest**: 2m wide stick nest with raised rim, 20+ individual sticks, moss/grass lining
+- **Jackie**: Adult bald eagle with dark brown body, white head, yellow beak, folded wings, white tail feathers - animated with subtle breathing and head movement
+- **Eggs and chick**: 2 off-white eggs and 1 fluffy gray eaglet with dark eyes and tiny beak - chick wiggles
+- **Default spawn**: Eagle launches from 50m above the nest facing southwest toward the lake
+- **Respawn point**: Returning to nest after crash takes eagle back here
+- **Visibility**: Nest rendered within 2km of eagle for performance
+
+### Day/Night Cycle and Weather (`dayNightWeather.js`)
+
+Real-time environmental conditions affecting the entire world:
+
+**Day/Night Phases** (mapped to Pacific Standard Time):
+
+| Phase | Hours | Fog | Light |
+|-------|-------|-----|-------|
+| Night | 00:00-05:00 | 1.5x | 10% |
+| Dawn | 05:00-07:00 | 1.2x | 40% |
+| Morning | 07:00-10:00 | 0.8x | 80% |
+| Midday | 10:00-14:00 | 0.5x | 100% |
+| Afternoon | 14:00-17:00 | 0.6x | 90% |
+| Dusk | 17:00-19:00 | 1.0x | 40% |
+| Evening | 19:00-21:00 | 1.3x | 20% |
+| Late Night | 21:00-24:00 | 1.5x | 10% |
+
+**Weather Conditions** (seasonal, changes every ~5 minutes):
+
+| Condition | Fog Density | Visibility | Wind | Thermals |
+|-----------|-------------|-----------|------|----------|
+| Clear | Very Low | 100% | 5 kt | 100% |
+| Partly Cloudy | Low | 90% | 10 kt | 80% |
+| Overcast | Medium | 60% | 15 kt | 30% |
+| Mountain Fog | High | 30% | 3 kt | 10% |
+| Desert Haze | Medium | 50% | 8 kt | 60% |
+| Thunderstorm | Very High | 30% | 30 kt | 200% (strong updrafts) |
+| Snow | High | 40% | 20 kt | 0% |
+| Santa Ana Winds | Medium | 70% | 50 kt | 50% |
+
+**Seasonal patterns**:
+- **Winter**: Snow, fog, overcast likely
+- **Spring**: Clear with afternoon storm buildups
+- **Summer**: Clear mornings, afternoon thunderstorms, desert haze
+- **Fall**: Clear skies, golden light, occasional Santa Ana winds
 
 ### HUD System (`hud.js`)
 

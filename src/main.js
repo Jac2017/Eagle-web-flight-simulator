@@ -18,6 +18,8 @@ import { WaterSystem } from './world/waterSystem';
 import { LandmarkSystem } from './world/landmarks';
 import { CitySystem } from './world/citySystem';
 import { TrafficSystem } from './world/trafficSystem';
+import { NestSystem, NEST_LOCATION } from './world/nestSystem';
+import { DayNightWeatherSystem } from './world/dayNightWeather';
 import { distanceFromCenter, distanceToBoundary, headingToCenter, isInTerritory, createTerritoryBoundary, TERRITORY_RADIUS_METERS, TERRITORY_CENTER } from './world/territory';
 
 const States = {
@@ -124,10 +126,10 @@ function applySettings() {
 }
 
 let state = {
-	lon: -116.9114,
-	lat: 34.2439,
-	alt: 2500,
-	heading: 0,
+	lon: NEST_LOCATION.lon,
+	lat: NEST_LOCATION.lat,
+	alt: (NEST_LOCATION.elevation + NEST_LOCATION.treeHeight + 50) / 0.3048, // 50m above nest, in feet
+	heading: NEST_LOCATION.heading,
 	pitch: 0,
 	roll: 0,
 	speed: 0,
@@ -164,6 +166,8 @@ let waterSystem;
 let landmarkSystem;
 let citySystem;
 let trafficSystem;
+let nestSystem;
+let dayNightWeather;
 let territoryEntities = null;
 let territoryWarningActive = false;
 
@@ -373,6 +377,18 @@ function initThree() {
 		console.error('Failed to init traffic system', e);
 	}
 
+	try {
+		nestSystem = new NestSystem(scene);
+	} catch (e) {
+		console.error('Failed to init nest system', e);
+	}
+
+	try {
+		dayNightWeather = new DayNightWeatherSystem(getViewer());
+	} catch (e) {
+		console.error('Failed to init day/night weather system', e);
+	}
+
 	initSounds().catch(err => console.error('Failed to init sounds', err));
 
 	const loader = new GLTFLoader();
@@ -452,6 +468,7 @@ function update(dt) {
 	state.liftForce = physicsResult.liftForce;
 	state.isTurbo = physicsResult.isTurbo;
 	state.turboWindup = physicsResult.turboWindup;
+	state.weatherConditions = dayNightWeather ? dayNightWeather.getConditions() : null;
 
 	if (weaponSystem) {
 		if (input.weaponIndex !== -1) {
@@ -576,6 +593,12 @@ function update(dt) {
 	}
 	if (trafficSystem) {
 		try { trafficSystem.update(dt, state); } catch (e) { }
+	}
+	if (nestSystem) {
+		try { nestSystem.update(dt, state); } catch (e) { }
+	}
+	if (dayNightWeather) {
+		try { dayNightWeather.update(dt); } catch (e) { }
 	}
 
 	// Territory boundary check - warn if approaching edge

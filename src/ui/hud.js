@@ -41,6 +41,10 @@ export class HUD {
 		this.liftValueElem = document.getElementById('lift-value');
 		this.vspeedValueElem = document.getElementById('vspeed-value');
 
+		// Weather HUD
+		this.weatherConditionElem = document.getElementById('weather-condition');
+		this.weatherWindElem = document.getElementById('weather-wind');
+
 		this.killNotifContainer = document.getElementById('kill-notification-container');
 		this.killTextElem = document.getElementById('kill-text');
 		this.killScoreElem = document.getElementById('kill-score');
@@ -342,6 +346,18 @@ export class HUD {
 		}
 	}
 
+	updateWeatherDisplay(state) {
+		if (state.weatherConditions) {
+			const c = state.weatherConditions;
+			if (this.weatherConditionElem) {
+				this.weatherConditionElem.textContent = `${c.daypartName} | ${c.weatherName}`;
+			}
+			if (this.weatherWindElem) {
+				this.weatherWindElem.textContent = `WIND ${c.windSpeed}kt ${c.windDirection}°`;
+			}
+		}
+	}
+
 	setPullUpWarning(shouldShow) {
 		if (this.pullUpElem) {
 			if (shouldShow) {
@@ -634,6 +650,7 @@ export class HUD {
 
 		// Update eagle flight status indicators
 		this.updateEagleStatus(state);
+		this.updateWeatherDisplay(state);
 
 		if (state.weaponSystem) {
 			this.updateWeapons(state.weaponSystem);

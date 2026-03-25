@@ -1899,6 +1899,39 @@ input[type="range"]::-webkit-slider-thumb {
 	border-left: 2px solid #d4a017;
 }
 
+#weather-hud {
+	position: absolute;
+	top: 50px;
+	right: 30px;
+	font-size: 11px;
+	color: rgba(212, 160, 23, 0.7);
+	text-align: right;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+#weather-condition {
+	font-size: 12px;
+	color: #d4a017;
+}
+
+#weather-wind {
+	font-size: 10px;
+	color: rgba(212, 160, 23, 0.5);
+}
+
+@media (max-width: 768px) {
+	#weather-hud {
+		top: 30px;
+		right: 60px;
+		font-size: 9px;
+	}
+	#weather-condition {
+		font-size: 10px;
+	}
+}
+
 #flight-mode-indicator.turbo {
 	color: #FF8C00;
 	border-left-color: #FF8C00;
