@@ -24,7 +24,7 @@ export class NPCSystem {
 	}
 
 	loadModel() {
-		this.loader.load('/assets/models/f-15.glb', (gltf) => {
+		this.loader.load('./assets/models/f-15.glb', (gltf) => {
 			this.modelTemplate = gltf.scene;
 			this.animations = gltf.animations;
 			this.modelTemplate.traverse((child) => {

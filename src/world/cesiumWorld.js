@@ -5,6 +5,9 @@ let miniViewer;
 let pauseMiniViewer;
 
 export function initCesium() {
+	// Cesium Ion default access token for terrain and imagery
+	Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2ZGEwNjkzZC0xNjI1LTQ0NDYtYTc3Yi1mOTVjZjI3OGQ0MDkiLCJpZCI6MjU5LCJpYXQiOjE3MzQ0Mzk4NDd9.JB1VljVNxoXpSDlt0bBFaHT25kMfQxMI2bDEpqM8AGA';
+
 	viewer = new Cesium.Viewer("cesiumContainer", {
 		terrain: Cesium.Terrain.fromWorldTerrain(),
 		timeline: false,

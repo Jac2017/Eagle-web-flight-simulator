@@ -252,34 +252,40 @@ function updateLoadingUI() {
 async function initSounds() {
 	soundManager.init(camera);
 
+	const loadSafe = (name, url, loop, vol) =>
+		soundManager.loadSound(name, url, loop, vol).catch(e => {
+			console.warn(`Failed to load sound: ${name}`, e);
+			return null;
+		});
+
 	await Promise.all([
-		soundManager.loadSound('boost', '/assets/sounds/boost.mp3', false, 0.35),
-		soundManager.loadSound('throttle', '/assets/sounds/throttle.mp3', false, 0.4),
-		soundManager.loadSound('explode', '/assets/sounds/explode.mp3', false, 0.75),
-		soundManager.loadSound('explosion-1', '/assets/sounds/explosion-1.mp3', false, 0.8),
-		soundManager.loadSound('explosion-2', '/assets/sounds/explosion-2.mp3', false, 0.8),
-		soundManager.loadSound('explosion-3', '/assets/sounds/explosion-3.mp3', false, 0.8),
-		soundManager.loadSound('ambient-crash', '/assets/sounds/ambient.mp3', true, 0.5),
-		soundManager.loadSound('weapon-warning', '/assets/sounds/weapon-warning-1.mp3', false, 1.0),
-		soundManager.loadSound('jet-engine', '/assets/sounds/jet-engine.mp3', true, 0.5),
-		soundManager.loadSound('spawn', '/assets/sounds/spawn.mp3', false, 0.5),
-		soundManager.loadSound('roll', '/assets/sounds/roll.mp3', true, 0.75),
-		soundManager.loadSound('pitch', '/assets/sounds/pitch.mp3', true, 0.75),
-		soundManager.loadSound('button-click', '/assets/sounds/button-click.mp3', false, 1.0),
-		soundManager.loadSound('weapon-switch', '/assets/sounds/weapon-switch.mp3', false, 0.75),
-		soundManager.loadSound('button-hover', '/assets/sounds/button-hover.mp3', false, 0.25),
-		soundManager.loadSound('zoom-in', '/assets/sounds/zoom-in.mp3', false, 0.5),
-		soundManager.loadSound('missile-fire', '/assets/sounds/missile-firing-1.mp3', false, 0.75),
-		soundManager.loadSound('m61-firing', '/assets/sounds/m61-firing.mp3', true, 0.75),
-		soundManager.loadSound('rwr-tws', '/assets/sounds/rwr-tws.mp3', true, 0.2),
-		soundManager.loadSound('rwr-lock', '/assets/sounds/rwr-lock.mp3', false, 0.2),
-		soundManager.loadSound('wind', '/assets/sounds/wind.mp3', true, 0.25),
-		soundManager.loadSound('terrain-pull-up', '/assets/sounds/terrain-pull-up.mp3', false, 0.9),
-		soundManager.loadSound('warning', '/assets/sounds/warning.mp3', false, 0.6),
-		soundManager.loadSound('glitch-1', '/assets/sounds/glitch-transition-1.mp3', false, 0.25),
-		soundManager.loadSound('glitch-2', '/assets/sounds/glitch-transition-2.mp3', false, 0.25),
-		soundManager.loadSound('glitch-3', '/assets/sounds/glitch-transition-3.mp3', false, 0.25),
-		soundManager.loadSound('glitch-4', '/assets/sounds/glitch-transition-4.mp3', false, 0.25)
+		loadSafe('boost', './assets/sounds/boost.mp3', false, 0.35),
+		loadSafe('throttle', './assets/sounds/throttle.mp3', false, 0.4),
+		loadSafe('explode', './assets/sounds/explode.mp3', false, 0.75),
+		loadSafe('explosion-1', './assets/sounds/explosion-1.mp3', false, 0.8),
+		loadSafe('explosion-2', './assets/sounds/explosion-2.mp3', false, 0.8),
+		loadSafe('explosion-3', './assets/sounds/explosion-3.mp3', false, 0.8),
+		loadSafe('ambient-crash', './assets/sounds/ambient.mp3', true, 0.5),
+		loadSafe('weapon-warning', './assets/sounds/weapon-warning-1.mp3', false, 1.0),
+		loadSafe('jet-engine', './assets/sounds/jet-engine.mp3', true, 0.5),
+		loadSafe('spawn', './assets/sounds/spawn.mp3', false, 0.5),
+		loadSafe('roll', './assets/sounds/roll.mp3', true, 0.75),
+		loadSafe('pitch', './assets/sounds/pitch.mp3', true, 0.75),
+		loadSafe('button-click', './assets/sounds/button-click.mp3', false, 1.0),
+		loadSafe('weapon-switch', './assets/sounds/weapon-switch.mp3', false, 0.75),
+		loadSafe('button-hover', './assets/sounds/button-hover.mp3', false, 0.25),
+		loadSafe('zoom-in', './assets/sounds/zoom-in.mp3', false, 0.5),
+		loadSafe('missile-fire', './assets/sounds/missile-firing-1.mp3', false, 0.75),
+		loadSafe('m61-firing', './assets/sounds/m61-firing.mp3', true, 0.75),
+		loadSafe('rwr-tws', './assets/sounds/rwr-tws.mp3', true, 0.2),
+		loadSafe('rwr-lock', './assets/sounds/rwr-lock.mp3', false, 0.2),
+		loadSafe('wind', './assets/sounds/wind.mp3', true, 0.25),
+		loadSafe('terrain-pull-up', './assets/sounds/terrain-pull-up.mp3', false, 0.9),
+		loadSafe('warning', './assets/sounds/warning.mp3', false, 0.6),
+		loadSafe('glitch-1', './assets/sounds/glitch-transition-1.mp3', false, 0.25),
+		loadSafe('glitch-2', './assets/sounds/glitch-transition-2.mp3', false, 0.25),
+		loadSafe('glitch-3', './assets/sounds/glitch-transition-3.mp3', false, 0.25),
+		loadSafe('glitch-4', './assets/sounds/glitch-transition-4.mp3', false, 0.25)
 	]);
 
 	loadingStatus.audio = true;
@@ -392,7 +398,7 @@ function initThree() {
 	initSounds().catch(err => console.error('Failed to init sounds', err));
 
 	const loader = new GLTFLoader();
-	loader.load('/assets/models/f-15.glb', (gltf) => {
+	loader.load('./assets/models/f-15.glb', (gltf) => {
 		const mesh = gltf.scene;
 
 		planeModel = new THREE.Group();
@@ -1434,6 +1440,15 @@ const viewer = initCesium();
 
 loadingStatus.cesium = true;
 updateLoadingUI();
+
+// Fallback: if globe hasn't loaded after 15s, enable start anyway
+setTimeout(() => {
+	if (!loadingStatus.globe) {
+		console.warn('Globe loading timeout - enabling start button anyway');
+		loadingStatus.globe = true;
+		updateLoadingUI();
+	}
+}, 15000);
 
 let globeLoadingStarted = false;
 const unregisterGlobeTracker = viewer.scene.postRender.addEventListener(() => {
