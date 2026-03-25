@@ -17,6 +17,7 @@ import { TreeSystem } from './world/treeSystem';
 import { WaterSystem } from './world/waterSystem';
 import { LandmarkSystem } from './world/landmarks';
 import { CitySystem } from './world/citySystem';
+import { TrafficSystem } from './world/trafficSystem';
 import { distanceFromCenter, distanceToBoundary, headingToCenter, isInTerritory, createTerritoryBoundary, TERRITORY_RADIUS_METERS, TERRITORY_CENTER } from './world/territory';
 
 const States = {
@@ -162,6 +163,7 @@ let treeSystem;
 let waterSystem;
 let landmarkSystem;
 let citySystem;
+let trafficSystem;
 let territoryEntities = null;
 let territoryWarningActive = false;
 
@@ -365,6 +367,12 @@ function initThree() {
 		console.error('Failed to init city system', e);
 	}
 
+	try {
+		trafficSystem = new TrafficSystem(getViewer(), scene);
+	} catch (e) {
+		console.error('Failed to init traffic system', e);
+	}
+
 	initSounds().catch(err => console.error('Failed to init sounds', err));
 
 	const loader = new GLTFLoader();
@@ -565,6 +573,9 @@ function update(dt) {
 	}
 	if (citySystem) {
 		try { citySystem.update(dt, state); } catch (e) { }
+	}
+	if (trafficSystem) {
+		try { trafficSystem.update(dt, state); } catch (e) { }
 	}
 
 	// Territory boundary check - warn if approaching edge

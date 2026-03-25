@@ -240,7 +240,8 @@ export class CitySystem {
 
 		// Instanced mesh for buildings
 		this.buildingInstances = null;
-		this.roofInstances = null;
+		this.windowInstances = null;  // Glowing window strips
+		this.rooftopInstances = null; // Rooftop details (AC units, helipads, antenna)
 
 		// Track which city cells are generated
 		this.generatedCities = new Map(); // cityName -> { buildings: [...] }
@@ -266,6 +267,30 @@ export class CitySystem {
 		this.buildingInstances.frustumCulled = false;
 		this.buildingInstances.layers.set(0);
 		this.scene.add(this.buildingInstances);
+
+		// Window strip instances - emissive for lit-window effect
+		const windowGeo = new THREE.BoxGeometry(1, 1, 1);
+		windowGeo.translate(0, 0.5, 0);
+		const windowMat = new THREE.MeshBasicMaterial({
+			color: 0xFFEEAA,
+			transparent: true,
+			opacity: 0.35,
+		});
+		this.windowInstances = new THREE.InstancedMesh(windowGeo, windowMat, MAX_BUILDINGS);
+		this.windowInstances.count = 0;
+		this.windowInstances.frustumCulled = false;
+		this.windowInstances.layers.set(0);
+		this.scene.add(this.windowInstances);
+
+		// Rooftop detail instances (small boxes on top of tall buildings)
+		const roofGeo = new THREE.BoxGeometry(1, 1, 1);
+		roofGeo.translate(0, 0.5, 0);
+		const roofMat = new THREE.MeshLambertMaterial({ color: 0x666666, flatShading: true });
+		this.rooftopInstances = new THREE.InstancedMesh(roofGeo, roofMat, 2000);
+		this.rooftopInstances.count = 0;
+		this.rooftopInstances.frustumCulled = false;
+		this.rooftopInstances.layers.set(0);
+		this.scene.add(this.rooftopInstances);
 
 		// Pre-generate all cities (buildings are stored as data, rendered via instancing)
 		for (const city of CITIES) {
@@ -313,11 +338,23 @@ export class CitySystem {
 				// Color
 				const colorIdx = Math.floor(seededRandom(cx * 500, cz * 500) * colors.length) % colors.length;
 
+				// Architectural features based on height
+				const hasRooftopDetail = height > 30;
+				const hasAntenna = height > 80 && seededRandom(cx * 700, cz * 700) > 0.6;
+				const windowRows = Math.max(1, Math.floor(height / 4));
+				const hasSetback = height > 60 && seededRandom(cx * 800, cz * 800) > 0.5; // Stepped top
+
 				buildings.push({
 					x: localX + (rand - 0.5) * city.gridSize * 0.3,
 					z: localZ + (seededRandom(cx * 600, cz * 600) - 0.5) * city.gridSize * 0.3,
 					width, depth, height,
 					color: colors[colorIdx],
+					hasRooftopDetail,
+					hasAntenna,
+					windowRows,
+					hasSetback,
+					setbackHeight: hasSetback ? height * (0.6 + seededRandom(cx * 900, cz * 900) * 0.3) : 0,
+					setbackInset: hasSetback ? 0.7 : 1.0, // How much narrower the top section is
 				});
 			}
 		}
@@ -350,6 +387,8 @@ export class CitySystem {
 		const color = new THREE.Color();
 
 		let idx = 0;
+		let wIdx = 0;  // Window instances
+		let rIdx = 0;  // Rooftop instances
 
 		for (const [name, { city, buildings }] of this.generatedCities) {
 			// Distance from eagle to city center
@@ -378,16 +417,68 @@ export class CitySystem {
 					if (h < 20) continue;
 				}
 
+				// Main building body
 				position.set(worldX, cityDy, worldZ);
 				scale.set(bldg.width, h, bldg.depth);
 				matrix.compose(position, quaternion, scale);
 				this.buildingInstances.setMatrixAt(idx, matrix);
 
 				color.setHex(bldg.color);
-				// Slight variation
-				const v = 0.85 + seededRandom(Math.floor(bldg.x), Math.floor(bldg.z)) * 0.3;
+				const v = 0.85 + seededRandom(Math.floor(bldg.x * 7), Math.floor(bldg.z * 7)) * 0.3;
 				color.multiplyScalar(v);
 				this.buildingInstances.setColorAt(idx, color);
+
+				// Window strips (only for close buildings)
+				if (bldgDist < maxRenderDist * 0.5 && wIdx < MAX_BUILDINGS && h > 10) {
+					// Single window band covering the building face
+					const windowH = h * 0.8;
+					position.set(worldX, cityDy + h * 0.1, worldZ);
+					scale.set(bldg.width + 0.3, windowH, bldg.depth + 0.3);
+					matrix.compose(position, quaternion, scale);
+					this.windowInstances.setMatrixAt(wIdx, matrix);
+
+					// Window color varies - warm yellow to cool blue
+					const windowColorHex = seededRandom(Math.floor(bldg.x * 3), Math.floor(bldg.z * 3)) > 0.5 ? 0xFFEEAA : 0xAADDFF;
+					color.setHex(windowColorHex);
+					this.windowInstances.setColorAt(wIdx, color);
+					wIdx++;
+				}
+
+				// Rooftop details (AC units, antenna, helipads) for close tall buildings
+				if (bldgDist < maxRenderDist * 0.3 && rIdx < 2000 && bldg.hasRooftopDetail) {
+					// AC unit / mechanical room on roof
+					position.set(worldX + bldg.width * 0.2, cityDy + h, worldZ);
+					scale.set(bldg.width * 0.3, 3, bldg.depth * 0.3);
+					matrix.compose(position, quaternion, scale);
+					this.rooftopInstances.setMatrixAt(rIdx, matrix);
+					color.setHex(0x555555);
+					this.rooftopInstances.setColorAt(rIdx, color);
+					rIdx++;
+
+					// Antenna for very tall buildings
+					if (bldg.hasAntenna && rIdx < 2000) {
+						position.set(worldX, cityDy + h, worldZ);
+						scale.set(0.5, h * 0.15, 0.5);
+						matrix.compose(position, quaternion, scale);
+						this.rooftopInstances.setMatrixAt(rIdx, matrix);
+						color.setHex(0xCC0000); // Red aviation light
+						this.rooftopInstances.setColorAt(rIdx, color);
+						rIdx++;
+					}
+				}
+
+				// Setback/stepped top section for taller buildings
+				if (bldg.hasSetback && idx < MAX_BUILDINGS - 1) {
+					idx++;
+					const topH = h - bldg.setbackHeight;
+					position.set(worldX, cityDy + bldg.setbackHeight, worldZ);
+					scale.set(bldg.width * bldg.setbackInset, topH, bldg.depth * bldg.setbackInset);
+					matrix.compose(position, quaternion, scale);
+					this.buildingInstances.setMatrixAt(idx, matrix);
+					color.setHex(bldg.color);
+					color.multiplyScalar(v * 1.1); // Slightly lighter top
+					this.buildingInstances.setColorAt(idx, color);
+				}
 
 				idx++;
 			}
@@ -395,17 +486,29 @@ export class CitySystem {
 		}
 
 		this.buildingInstances.count = idx;
+		this.windowInstances.count = wIdx;
+		this.rooftopInstances.count = rIdx;
+
 		if (idx > 0) {
 			this.buildingInstances.instanceMatrix.needsUpdate = true;
-			if (this.buildingInstances.instanceColor)
-				this.buildingInstances.instanceColor.needsUpdate = true;
+			if (this.buildingInstances.instanceColor) this.buildingInstances.instanceColor.needsUpdate = true;
+		}
+		if (wIdx > 0) {
+			this.windowInstances.instanceMatrix.needsUpdate = true;
+			if (this.windowInstances.instanceColor) this.windowInstances.instanceColor.needsUpdate = true;
+		}
+		if (rIdx > 0) {
+			this.rooftopInstances.instanceMatrix.needsUpdate = true;
+			if (this.rooftopInstances.instanceColor) this.rooftopInstances.instanceColor.needsUpdate = true;
 		}
 	}
 
 	dispose() {
-		if (this.buildingInstances) {
-			this.scene.remove(this.buildingInstances);
-			this.buildingInstances.dispose();
-		}
+		[this.buildingInstances, this.windowInstances, this.rooftopInstances].forEach(inst => {
+			if (inst) {
+				this.scene.remove(inst);
+				inst.dispose();
+			}
+		});
 	}
 }

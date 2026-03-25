@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as Cesium from 'cesium';
+import { WaterSystem } from './waterSystem';
 
 /**
  * 3D Tree System - Procedural forest rendering for Big Bear Valley region.
@@ -349,18 +350,10 @@ export class TreeSystem {
 	}
 
 	/**
-	 * Check if a position is likely water
+	 * Check if a position is over water using WaterSystem's definitive boundaries
 	 */
 	isWaterArea(lon, lat) {
-		// Big Bear Lake approximate bounds
-		if (lat > 34.23 && lat < 34.27 && lon > -116.95 && lon < -116.85) return true;
-		// Baldwin Lake
-		if (lat > 34.27 && lat < 34.30 && lon > -116.85 && lon < -116.80) return true;
-		// Lake Arrowhead
-		if (lat > 34.25 && lat < 34.27 && lon > -117.20 && lon < -117.17) return true;
-		// Silverwood Lake
-		if (lat > 34.28 && lat < 34.31 && lon > -117.35 && lon < -117.32) return true;
-		return false;
+		return WaterSystem.isOverWater(lon, lat);
 	}
 
 	/**

@@ -104,6 +104,7 @@ src/
     waterSystem.js         # Water rendering with custom GLSL shaders
     landmarks.js           # Named POI 3D structures (ski resort, Vegas, Hollywood, etc.)
     citySystem.js          # Procedural 3D buildings for 20+ major cities
+    trafficSystem.js       # Highway vehicles, boats, aircraft
     territory.js           # 500-mile territory boundary system
     regions.js             # Geolocation utilities
   systems/
@@ -279,6 +280,61 @@ Technical details:
 - **LOD filtering** - Only tall buildings rendered at distance; short buildings culled
 - **Per-building variation** - Size, height, color randomized within style constraints
 - **Distance-based rendering** - Cities only rendered when eagle is within range
+- **Window lighting** - Semi-transparent warm/cool lit window strips on building faces
+- **Rooftop details** - AC units, mechanical rooms on buildings over 30m; red-lit antenna on buildings over 80m
+- **Stepped architecture** - Buildings over 60m can have setback/stepped tops (narrower upper section)
+
+### World Traffic System (`trafficSystem.js`)
+
+Living world with vehicles, boats, and aircraft:
+
+**Highway Vehicles** (up to 800 instanced):
+
+| Highway | Lanes | Density | Route |
+|---------|-------|---------|-------|
+| I-15 | 4 | 80% | LA to Las Vegas |
+| I-10 | 4 | 70% | LA to Phoenix |
+| I-5 | 3 | 60% | LA to Bakersfield |
+| I-405 | 5 | 90% | Long Beach to Van Nuys |
+| SR-18/138 | 1 | 30% | Big Bear Highway |
+| US-95 | 2 | 40% | Vegas northbound |
+| SR-62 | 1 | 20% | 29 Palms Highway |
+
+- Cars (85%) and trucks (15%) with realistic color distributions
+- Per-lane offsets, bidirectional traffic flow
+- Speed variation: 55-90 mph for cars, 40-63 mph for trucks
+- Vehicles animate along waypoint routes, wrapping at endpoints
+
+**Boats** (up to 80 instanced):
+
+| Water Body | Count | Types |
+|------------|-------|-------|
+| Big Bear Lake | 8 | Motorboats, sailboats |
+| Lake Arrowhead | 4 | Small craft |
+| Silverwood Lake | 3 | Recreation |
+| San Diego Bay | 12 | Large ships, sailboats, motorboats |
+| Long Beach Harbor | 15 | Cargo ships, recreational |
+| Lake Mead | 6 | Recreational |
+
+- Three vessel types: cargo/large (20%), sailboats (30%), motorboats (50%)
+- Patrol patterns within water body radius with turn-back behavior
+- Water bobbing animation with gentle roll
+
+**Aircraft** (up to 20 instanced):
+
+| Corridor | Altitude | Speed | Count |
+|----------|----------|-------|-------|
+| LAX Approach | 3,000m | 130 kts | 3 |
+| LAX Departure N | 8,000m | 200 kts | 2 |
+| Vegas Approach S | 4,000m | 140 kts | 2 |
+| Phoenix Route | 11,000m | 250 kts | 2 |
+| SF-SD Corridor | 10,000m | 240 kts | 2 |
+| Military (Edwards) | 5,000m | 300 kts | 1 |
+| SoCal Helicopters | 500m | 60 kts | 3 |
+
+- Commercial airliners (large, white), military jets, and helicopters
+- Fly along realistic corridors with bounce-back at endpoints
+- Size varies by type: helicopters (12m), jets (15m), airliners (60m)
 
 ### Water Rendering (`waterSystem.js`)
 

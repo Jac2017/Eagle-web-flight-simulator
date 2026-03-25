@@ -170,8 +170,8 @@ export class NPCSystem {
 			const pos = Cesium.Cartesian3.fromDegrees(npc.lon, npc.lat, npc.alt, undefined, this._scratchCartesian);
 
 			this._scratchHPR.heading = Cesium.Math.toRadians(npc.heading);
-			this._scratchHPR.pitch = Cesium.Math.toRadians(npc.roll);
-			this._scratchHPR.roll = Cesium.Math.toRadians(npc.pitch);
+			this._scratchHPR.pitch = Cesium.Math.toRadians(npc.pitch);
+			this._scratchHPR.roll = Cesium.Math.toRadians(npc.roll);
 
 			const modelMatrix = Cesium.Transforms.headingPitchRollToFixedFrame(
 				pos,
