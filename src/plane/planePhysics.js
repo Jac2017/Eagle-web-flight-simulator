@@ -60,6 +60,14 @@ export class PlanePhysics {
 		this.boostRotations = 0;      // Eagles don't barrel roll in dives
 		this.boostPressed = false;
 
+		// Turbo boost - supernatural speed for cross-territory travel
+		// 400 knots = ~206 m/s. In game units, we map this to speed 400
+		this.isTurbo = false;
+		this.turboSpeed = 400;        // 400 knots equivalent
+		this.turboPressed = false;
+		this.turboWindup = 0;         // 0-1 ramp-up factor
+		this.turboTrailTimer = 0;
+
 		// Wing animation state
 		this.flapPhase = 0;           // Current flap cycle phase (0-2π)
 		this.flapFrequency = 3.0;     // Flaps per second at full effort
@@ -86,6 +94,8 @@ export class PlanePhysics {
 		this.thermalStrength = 0;
 		this.isGliding = false;
 		this.wingSpread = 1.0;
+		this.isTurbo = false;
+		this.turboWindup = 0;
 
 		const euler = new THREE.Euler(
 			THREE.MathUtils.degToRad(this.pitch),
@@ -141,6 +151,9 @@ export class PlanePhysics {
 		const induced = this.inducedDragFactor * density * speed * this.wingArea / (Math.PI * this.aspectRatio);
 
 		// Wing-tucked dive has much less drag
+		if (this.isTurbo || this.turboWindup > 0.1) {
+			return parasitic * 0.05; // Supernatural turbo - almost no drag
+		}
 		if (this.isBoosting) {
 			return parasitic * 0.3; // Streamlined tuck
 		}
@@ -189,7 +202,7 @@ export class PlanePhysics {
 		}
 
 		if (input.boost) {
-			if (!this.boostPressed && !this.isBoosting) {
+			if (!this.boostPressed && !this.isBoosting && !this.isTurbo) {
 				this.boost();
 			}
 			this.boostPressed = true;
@@ -197,14 +210,38 @@ export class PlanePhysics {
 			this.boostPressed = false;
 		}
 
+		// --- Turbo boost (Shift key / mobile turbo button) ---
+		if (input.turbo) {
+			if (!this.turboPressed) {
+				this.isTurbo = !this.isTurbo; // Toggle on/off
+				if (this.isTurbo) {
+					this.isBoosting = false;
+					this.boostTimeRemaining = 0;
+				}
+			}
+			this.turboPressed = true;
+		} else {
+			this.turboPressed = false;
+		}
+
+		// Turbo windup ramp (takes ~1.5s to reach full turbo speed)
+		if (this.isTurbo) {
+			this.turboWindup = Math.min(1.0, this.turboWindup + dt * 0.7);
+		} else {
+			this.turboWindup = Math.max(0, this.turboWindup - dt * 1.5);
+		}
+
 		// --- Throttle as wing effort ---
 		this.throttle = input.throttle;
 
 		// Determine gliding state: low throttle = gliding
-		this.isGliding = this.throttle < 0.15 && !this.isBoosting;
+		this.isGliding = this.throttle < 0.15 && !this.isBoosting && !this.isTurbo;
 
 		// Wing spread: 1.0 when gliding/soaring, decreases during power flapping
-		if (this.isBoosting) {
+		if (this.isTurbo || this.turboWindup > 0.1) {
+			// Turbo: wings swept back like a peregrine falcon stoop
+			this.wingSpread += (0.15 - this.wingSpread) * dt * 6;
+		} else if (this.isBoosting) {
 			this.wingSpread += (0.2 - this.wingSpread) * dt * 5; // Tuck for dive
 		} else if (this.isGliding) {
 			this.wingSpread += (1.0 - this.wingSpread) * dt * 3; // Full spread for glide
@@ -242,6 +279,11 @@ export class PlanePhysics {
 			maxSpd = this.maxSpeed + (this.maxDiveSpeed - this.maxSpeed) * Math.min(1, Math.abs(this.pitch) / 60);
 		}
 
+		// Turbo override - 400 knots
+		if (this.isTurbo || this.turboWindup > 0.01) {
+			maxSpd = this.turboSpeed;
+		}
+
 		// Update speed
 		this.speed += accel * dt;
 		this.speed = Math.max(this.minSpeed, Math.min(maxSpd, this.speed));
@@ -250,6 +292,13 @@ export class PlanePhysics {
 		if (this.isBoosting) {
 			const targetSpeed = this.maxDiveSpeed * 0.8;
 			this.speed += (targetSpeed - this.speed) * dt * 3;
+		}
+
+		// Turbo speed override - ramp to 400 knots with easing
+		if (this.isTurbo || this.turboWindup > 0.01) {
+			const eased = this.turboWindup * this.turboWindup * (3 - 2 * this.turboWindup); // smoothstep
+			const targetTurbo = this.turboSpeed * eased;
+			this.speed += (targetTurbo - this.speed) * dt * 2.5;
 		}
 
 		// --- Vertical speed from thermals and lift ---
@@ -312,7 +361,9 @@ export class PlanePhysics {
 			inThermal: this.inThermal,
 			verticalSpeed: this.verticalSpeed,
 			flapPhase: this.flapPhase,
-			liftForce: this.calculateLift(this.speed, this.pitch, density)
+			liftForce: this.calculateLift(this.speed, this.pitch, density),
+			isTurbo: this.isTurbo,
+			turboWindup: this.turboWindup,
 		};
 	}
 }

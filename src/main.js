@@ -442,6 +442,8 @@ function update(dt) {
 	state.thermalStrength = physicsResult.thermalStrength;
 	state.verticalSpeed = physicsResult.verticalSpeed;
 	state.liftForce = physicsResult.liftForce;
+	state.isTurbo = physicsResult.isTurbo;
+	state.turboWindup = physicsResult.turboWindup;
 
 	if (weaponSystem) {
 		if (input.weaponIndex !== -1) {

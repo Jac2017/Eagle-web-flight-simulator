@@ -39,6 +39,7 @@ After `npm run build`, the `dist/` folder contains a complete self-contained dep
 | **Arrow Left / Right** | Roll left / right |
 | **A / D** | Yaw (rudder turn) |
 | **SPACE** | Power dive (tuck wings, accelerate steeply) |
+| **SHIFT** | Turbo boost toggle (400 knots for cross-territory travel) |
 | **F / ENTER** | Talon strike / catch prey |
 | **1 / 2 / Q** | Switch attack mode |
 | **V** | Eagle screech (scare ravens) |
@@ -51,6 +52,7 @@ After `npm run build`, the `dist/` folder contains a complete self-contained dep
 - **Tilt phone** left/right to roll, forward/back to pitch
 - **Throttle slider** (left side) - slide up/down for wing power
 - **TALON** button - hold to strike
+- **TURBO** button - toggle 400-knot turbo boost for cross-territory travel
 - **DIVE** button - tap for power dive
 - **SWITCH** button - change attack mode
 - **SCREECH** button - eagle screech
@@ -154,6 +156,7 @@ Speed ranges:
 | Gliding cruise | 15-25 units |
 | Flapping cruise | 25-45 units |
 | Power dive | up to 120 units |
+| **Turbo boost** | **400 knots** (~460 mph) |
 
 ### Multi-Biome Flora System (`treeSystem.js`)
 

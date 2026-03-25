@@ -1899,6 +1899,20 @@ input[type="range"]::-webkit-slider-thumb {
 	border-left: 2px solid #d4a017;
 }
 
+#flight-mode-indicator.turbo {
+	color: #FF8C00;
+	border-left-color: #FF8C00;
+	background: rgba(255, 140, 0, 0.2);
+	animation: turbo-glow 0.4s ease-in-out infinite;
+	font-size: 16px;
+	letter-spacing: 3px;
+}
+
+@keyframes turbo-glow {
+	0%, 100% { text-shadow: 0 0 8px rgba(255, 140, 0, 0.6); }
+	50% { text-shadow: 0 0 20px rgba(255, 140, 0, 1.0), 0 0 40px rgba(255, 100, 0, 0.4); }
+}
+
 #flight-mode-indicator.gliding {
 	color: #7ecbf5;
 	border-left-color: #7ecbf5;

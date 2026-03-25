@@ -40,6 +40,7 @@ export class PlaneController {
 			roll: 0,
 			yaw: 0,
 			boost: false,
+			turbo: false,
 			cameraYaw: 0,
 			cameraPitch: 0,
 			isDragging: false,
@@ -62,6 +63,7 @@ export class PlaneController {
 		// Touch control state
 		this.touchThrottle = 0;
 		this.touchBoosting = false;
+		this.touchTurbo = false;
 		this.touchFiring = false;
 		this.touchFlare = false;
 		this.touchWeaponToggle = false;
@@ -234,10 +236,11 @@ export class PlaneController {
 		};
 
 		const fireBtn = makeButton('mobile-fire', 'TALON', 'rgba(220,50,50,0.6)', 58);
-		const boostBtn = makeButton('mobile-boost', 'DIVE', 'rgba(50,120,220,0.6)', 52);
-		const weaponBtn = makeButton('mobile-weapon', 'SWITCH', 'rgba(212,160,23,0.5)', 44);
-		const flareBtn = makeButton('mobile-flare', 'SCREECH', 'rgba(100,200,100,0.5)', 44);
-		const calibrateBtn = makeButton('mobile-calibrate', 'LEVEL', 'rgba(150,150,150,0.5)', 38);
+		const turboBtn = makeButton('mobile-turbo', 'TURBO', 'rgba(255,140,0,0.6)', 52);
+		const boostBtn = makeButton('mobile-boost', 'DIVE', 'rgba(50,120,220,0.6)', 48);
+		const weaponBtn = makeButton('mobile-weapon', 'SWITCH', 'rgba(212,160,23,0.5)', 42);
+		const flareBtn = makeButton('mobile-flare', 'SCREECH', 'rgba(100,200,100,0.5)', 42);
+		const calibrateBtn = makeButton('mobile-calibrate', 'LEVEL', 'rgba(150,150,150,0.5)', 36);
 
 		// Fire button - hold to fire
 		fireBtn.addEventListener('touchstart', (e) => {
@@ -249,6 +252,14 @@ export class PlaneController {
 			this.touchFiring = false;
 			fireBtn.style.background = 'rgba(220,50,50,0.6)';
 		});
+
+		// Turbo button - toggle 400 knot travel mode
+		turboBtn.addEventListener('touchstart', (e) => {
+			e.preventDefault(); e.stopPropagation();
+			this.touchTurbo = true;
+			turboBtn.style.background = this.touchTurbo ? 'rgba(255,180,0,0.9)' : 'rgba(255,140,0,0.6)';
+			setTimeout(() => { turboBtn.style.background = 'rgba(255,140,0,0.6)'; }, 200);
+		}, { passive: false });
 
 		// Boost button - tap to dive
 		boostBtn.addEventListener('touchstart', (e) => {
@@ -289,6 +300,7 @@ export class PlaneController {
 		}, { passive: false });
 
 		buttonsArea.appendChild(fireBtn);
+		buttonsArea.appendChild(turboBtn);
 		buttonsArea.appendChild(boostBtn);
 		buttonsArea.appendChild(weaponBtn);
 		buttonsArea.appendChild(flareBtn);
@@ -386,6 +398,7 @@ export class PlaneController {
 	update() {
 		// --- Desktop keyboard input ---
 		this.input.boost = !!this.keys[' '];
+		this.input.turbo = !!this.keys['shift'];
 		this.input.isDragging = this.mouseDragging;
 
 		this.input.fire = !!this.keys['enter'] || !!this.keys['f'];
@@ -455,6 +468,7 @@ export class PlaneController {
 
 			// Boost from touch button
 			this.input.boost = this.input.boost || this.touchBoosting;
+			this.input.turbo = this.input.turbo || this.touchTurbo;
 
 			// Fire from touch button
 			this.input.fire = this.input.fire || this.touchFiring;

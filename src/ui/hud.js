@@ -288,7 +288,11 @@ export class HUD {
 			let mode = 'SOARING';
 			let modeClass = '';
 
-			if (state.isBoosting) {
+			if (state.isTurbo || state.turboWindup > 0.1) {
+				const knots = Math.round(state.speed);
+				mode = `TURBO ${knots} KTS`;
+				modeClass = 'turbo';
+			} else if (state.isBoosting) {
 				mode = 'DIVING';
 				modeClass = 'diving';
 			} else if (state.isGliding) {
@@ -580,12 +584,14 @@ export class HUD {
 		const speedFactor = this.minimapRange * 2;
 		let zoomAlt = baseZoom + (state.speed * speedFactor);
 		if (state.isBoosting) zoomAlt *= 1.2;
+		if (state.isTurbo) zoomAlt *= 3.0; // Much wider minimap view at turbo speeds
 		this.currentZoom = zoomAlt;
 		setMinimapCamera(state.lon, state.lat, zoomAlt, this.smoothedHeading);
 
 		const isBoosting = state.isBoosting || false;
+		const isTurbo = state.isTurbo || false;
 		if (this.vignette) {
-			this.vignette.style.opacity = isBoosting ? "1" : "0";
+			this.vignette.style.opacity = (isBoosting || isTurbo) ? "1" : "0";
 		}
 
 		const pitchDiff = getAngleDiff(state.pitch, this.smoothedPitch);
@@ -602,12 +608,17 @@ export class HUD {
 			const shiftX = Math.max(-maxShift, Math.min(maxShift, -rollDiff * 1.5 - yawDiff * 20.0));
 			const shiftY = Math.max(-maxShift, Math.min(maxShift, pitchDiff * 3.0 + throttleDiff * 15.0));
 
-			const targetBoostScale = isBoosting ? 1.02 : 1.0;
+			const targetBoostScale = isTurbo ? 1.04 : (isBoosting ? 1.02 : 1.0);
 			this.smoothedBoostScale = this.smoothedBoostScale + (targetBoostScale - this.smoothedBoostScale) * 0.1;
 
 			const scale = (1 + (throttleDiff * 0.25)) * this.smoothedBoostScale;
 
-			if (isBoosting) {
+			if (isTurbo) {
+				// Heavy turbo shake - speed lines feel
+				const time = Date.now() * 0.06;
+				this.currentShakeX = Math.sin(time * 2.0) * 3 + Math.cos(time * 3.1) * 2;
+				this.currentShakeY = Math.cos(time * 2.3) * 3 + Math.sin(time * 3.5) * 2;
+			} else if (isBoosting) {
 				const time = Date.now() * 0.05;
 				this.currentShakeX = Math.sin(time * 1.5) * 2 + Math.cos(time * 2.1) * 1.5;
 				this.currentShakeY = Math.cos(time * 1.7) * 2 + Math.sin(time * 2.3) * 1.5;
