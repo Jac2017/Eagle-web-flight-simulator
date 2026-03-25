@@ -15,6 +15,8 @@ import * as Cesium from 'cesium';
 import { particles } from './utils/particles';
 import { TreeSystem } from './world/treeSystem';
 import { WaterSystem } from './world/waterSystem';
+import { LandmarkSystem } from './world/landmarks';
+import { CitySystem } from './world/citySystem';
 import { distanceFromCenter, distanceToBoundary, headingToCenter, isInTerritory, createTerritoryBoundary, TERRITORY_RADIUS_METERS, TERRITORY_CENTER } from './world/territory';
 
 const States = {
@@ -158,6 +160,8 @@ let weaponSystem;
 let dialogueSystem = new DialogueSystem();
 let treeSystem;
 let waterSystem;
+let landmarkSystem;
+let citySystem;
 let territoryEntities = null;
 let territoryWarningActive = false;
 
@@ -347,6 +351,18 @@ function initThree() {
 		waterSystem = new WaterSystem(getViewer(), scene);
 	} catch (e) {
 		console.error('Failed to init water system', e);
+	}
+
+	try {
+		landmarkSystem = new LandmarkSystem(getViewer(), scene);
+	} catch (e) {
+		console.error('Failed to init landmark system', e);
+	}
+
+	try {
+		citySystem = new CitySystem(getViewer(), scene);
+	} catch (e) {
+		console.error('Failed to init city system', e);
 	}
 
 	initSounds().catch(err => console.error('Failed to init sounds', err));
@@ -541,6 +557,12 @@ function update(dt) {
 	}
 	if (waterSystem) {
 		try { waterSystem.update(dt, state); } catch (e) { }
+	}
+	if (landmarkSystem) {
+		try { landmarkSystem.update(dt, state); } catch (e) { }
+	}
+	if (citySystem) {
+		try { citySystem.update(dt, state); } catch (e) { }
 	}
 
 	// Territory boundary check - warn if approaching edge

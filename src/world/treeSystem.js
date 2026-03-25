@@ -27,63 +27,158 @@ const TREE_CONFIG = {
 	lodFar: 1500,
 };
 
-// Tree species with their characteristics
+// Tree/flora species with their characteristics
+// Organized by biome - altitude and lat/lon determine which biome applies
 const TREE_SPECIES = {
+	// === MOUNTAIN CONIFERS (Big Bear area) ===
 	jeffreyPine: {
-		trunkHeight: 20,   // meters (~65 ft)
-		trunkRadius: 0.4,
-		crownHeight: 12,
-		crownRadius: 4,
-		trunkColor: 0x5C3A1E,
-		crownColor: 0x2D5A27,
-		altMin: 1500,  // meters (~5000 ft)
-		altMax: 2400,  // meters (~7800 ft)
-		density: 0.6,
+		trunkHeight: 20, trunkRadius: 0.4,
+		crownHeight: 12, crownRadius: 4,
+		trunkColor: 0x5C3A1E, crownColor: 0x2D5A27,
+		altMin: 1500, altMax: 2400, density: 0.6,
+		biome: 'mountain',
 	},
 	whiteFir: {
-		trunkHeight: 25,
-		trunkRadius: 0.5,
-		crownHeight: 18,
-		crownRadius: 3.5,
-		trunkColor: 0x6B4226,
-		crownColor: 0x1B4D1B,
-		altMin: 1700,
-		altMax: 2700,
-		density: 0.5,
+		trunkHeight: 25, trunkRadius: 0.5,
+		crownHeight: 18, crownRadius: 3.5,
+		trunkColor: 0x6B4226, crownColor: 0x1B4D1B,
+		altMin: 1700, altMax: 2700, density: 0.5,
+		biome: 'mountain',
 	},
 	lodgepolePine: {
-		trunkHeight: 18,
-		trunkRadius: 0.3,
-		crownHeight: 10,
-		crownRadius: 2.5,
-		trunkColor: 0x7A5230,
-		crownColor: 0x3A6B35,
-		altMin: 2100,
-		altMax: 3000,
-		density: 0.7,
+		trunkHeight: 18, trunkRadius: 0.3,
+		crownHeight: 10, crownRadius: 2.5,
+		trunkColor: 0x7A5230, crownColor: 0x3A6B35,
+		altMin: 2100, altMax: 3000, density: 0.7,
+		biome: 'mountain',
 	},
 	scrubOak: {
-		trunkHeight: 6,
-		trunkRadius: 0.2,
-		crownHeight: 5,
-		crownRadius: 3,
-		trunkColor: 0x5A3E28,
-		crownColor: 0x4A7A3A,
-		altMin: 1000,
-		altMax: 1800,
-		density: 0.3,
+		trunkHeight: 6, trunkRadius: 0.2,
+		crownHeight: 5, crownRadius: 3,
+		trunkColor: 0x5A3E28, crownColor: 0x4A7A3A,
+		altMin: 1000, altMax: 1800, density: 0.3,
+		biome: 'mountain',
 	},
 	alpinePine: {
-		trunkHeight: 8,
-		trunkRadius: 0.25,
-		crownHeight: 6,
-		crownRadius: 2,
-		trunkColor: 0x6B4A30,
-		crownColor: 0x2A5530,
-		altMin: 2700,
-		altMax: 3500,
-		density: 0.15,
-	}
+		trunkHeight: 8, trunkRadius: 0.25,
+		crownHeight: 6, crownRadius: 2,
+		trunkColor: 0x6B4A30, crownColor: 0x2A5530,
+		altMin: 2700, altMax: 3500, density: 0.15,
+		biome: 'mountain',
+	},
+
+	// === DESERT FLORA (Mojave, 29 Palms, Fort Irwin area) ===
+	joshuaTree: {
+		trunkHeight: 8, trunkRadius: 0.3,
+		crownHeight: 4, crownRadius: 3,
+		trunkColor: 0x8B7355, crownColor: 0x6B8E4E,
+		altMin: 400, altMax: 1800, density: 0.12,
+		biome: 'desert',
+	},
+	saguaroCactus: {
+		trunkHeight: 10, trunkRadius: 0.4,
+		crownHeight: 2, crownRadius: 0.5,
+		trunkColor: 0x4A7A4A, crownColor: 0x5A8A5A,
+		altMin: 200, altMax: 1200, density: 0.06,
+		biome: 'desert',
+	},
+	creosoteBush: {
+		trunkHeight: 2, trunkRadius: 0.1,
+		crownHeight: 2, crownRadius: 1.5,
+		trunkColor: 0x6B5A3E, crownColor: 0x7A8B50,
+		altMin: 0, altMax: 1500, density: 0.2,
+		biome: 'desert',
+	},
+	desertSage: {
+		trunkHeight: 1.2, trunkRadius: 0.05,
+		crownHeight: 1, crownRadius: 0.8,
+		trunkColor: 0x8A7A60, crownColor: 0x9AA87A,
+		altMin: 0, altMax: 2000, density: 0.25,
+		biome: 'desert',
+	},
+	smokeyTree: {
+		trunkHeight: 5, trunkRadius: 0.15,
+		crownHeight: 4, crownRadius: 2.5,
+		trunkColor: 0x7A6B55, crownColor: 0x8A9A7A,
+		altMin: 100, altMax: 900, density: 0.08,
+		biome: 'desert',
+	},
+
+	// === PALM TREES (LA, coastal, Palm Springs, Vegas) ===
+	californiaFanPalm: {
+		trunkHeight: 18, trunkRadius: 0.3,
+		crownHeight: 5, crownRadius: 4,
+		trunkColor: 0x8B7355, crownColor: 0x3A8B3A,
+		altMin: 0, altMax: 500, density: 0.3,
+		biome: 'coastal',
+	},
+	datePalm: {
+		trunkHeight: 15, trunkRadius: 0.35,
+		crownHeight: 6, crownRadius: 4.5,
+		trunkColor: 0x7A6B50, crownColor: 0x2D7A2D,
+		altMin: 0, altMax: 300, density: 0.25,
+		biome: 'coastal',
+	},
+	mexicanFanPalm: {
+		trunkHeight: 25, trunkRadius: 0.25,
+		crownHeight: 4, crownRadius: 3.5,
+		trunkColor: 0x9A8A6A, crownColor: 0x4A9A4A,
+		altMin: 0, altMax: 700, density: 0.2,
+		biome: 'urban',
+	},
+
+	// === URBAN TREES (city streets and parks) ===
+	urbanLondonPlane: {
+		trunkHeight: 12, trunkRadius: 0.3,
+		crownHeight: 8, crownRadius: 5,
+		trunkColor: 0x7A6A5A, crownColor: 0x3A7A30,
+		altMin: 0, altMax: 500, density: 0.15,
+		biome: 'urban',
+	},
+	urbanJacaranda: {
+		trunkHeight: 10, trunkRadius: 0.25,
+		crownHeight: 6, crownRadius: 5,
+		trunkColor: 0x5A4A3A, crownColor: 0x7A5AAA, // Purple blooms!
+		altMin: 0, altMax: 500, density: 0.1,
+		biome: 'urban',
+	},
+	urbanOak: {
+		trunkHeight: 14, trunkRadius: 0.4,
+		crownHeight: 10, crownRadius: 7,
+		trunkColor: 0x5A4830, crownColor: 0x3A6A28,
+		altMin: 0, altMax: 800, density: 0.12,
+		biome: 'urban',
+	},
+	eucalyptus: {
+		trunkHeight: 20, trunkRadius: 0.35,
+		crownHeight: 10, crownRadius: 4,
+		trunkColor: 0x9A8A7A, crownColor: 0x5A8A5A,
+		altMin: 0, altMax: 600, density: 0.15,
+		biome: 'coastal',
+	},
+
+	// === CHAPARRAL (foothills, below mountains) ===
+	manzanita: {
+		trunkHeight: 3, trunkRadius: 0.1,
+		crownHeight: 3, crownRadius: 2,
+		trunkColor: 0x8A3020, crownColor: 0x4A6A30,
+		altMin: 300, altMax: 1500, density: 0.35,
+		biome: 'chaparral',
+	},
+	californiaLaurel: {
+		trunkHeight: 10, trunkRadius: 0.3,
+		crownHeight: 7, crownRadius: 5,
+		trunkColor: 0x5A4A30, crownColor: 0x2A5A20,
+		altMin: 200, altMax: 1200, density: 0.2,
+		biome: 'chaparral',
+	},
+	ceanothus: {
+		trunkHeight: 4, trunkRadius: 0.15,
+		crownHeight: 3, crownRadius: 2.5,
+		trunkColor: 0x6A5A40, crownColor: 0x3A7A50,
+		altMin: 200, altMax: 1500, density: 0.3,
+		biome: 'chaparral',
+	},
 };
 
 // Simple seeded random for deterministic tree placement
@@ -169,30 +264,102 @@ export class TreeSystem {
 	}
 
 	/**
-	 * Get the appropriate tree species for a given altitude
+	 * Determine the biome for a given lat/lon position.
+	 * Based on real Southern California geography.
 	 */
-	getSpeciesForAltitude(altMeters) {
+	getBiome(lon, lat, altMeters) {
+		// High altitude = mountain biome regardless
+		if (altMeters > 1500) return 'mountain';
+
+		// Chaparral foothills (mid-altitude around mountains)
+		if (altMeters > 600 && altMeters < 1500) return 'chaparral';
+
+		// Desert biome - east of the mountains, inland
+		// Mojave: roughly north of 34.5°, east of -117.5°
+		// Also 29 Palms area, Fort Irwin
+		if (lat > 34.5 && lon > -117.5) return 'desert';
+		if (lat > 33.5 && lon > -116.5 && altMeters < 600) return 'desert';
+		// Coachella/Palm Springs desert
+		if (lat < 34.0 && lat > 33.3 && lon > -116.8 && lon < -115.5) return 'desert';
+		// Phoenix area
+		if (lat < 34.0 && lon > -113.0) return 'desert';
+		// Tucson area
+		if (lat < 33.0 && lon > -112.0) return 'desert';
+
+		// Coastal biome - near the Pacific
+		if (lon < -117.5 && altMeters < 300) return 'coastal';
+		if (lon < -118.0 && lat < 34.5) return 'coastal';
+
+		// Urban biome - near major city centers
+		const urbanCenters = [
+			{ lon: -118.24, lat: 34.05, r: 0.15 },  // LA
+			{ lon: -118.19, lat: 33.77, r: 0.08 },   // Long Beach
+			{ lon: -117.16, lat: 32.72, r: 0.12 },   // San Diego
+			{ lon: -115.14, lat: 36.17, r: 0.1 },    // Las Vegas
+			{ lon: -117.91, lat: 33.84, r: 0.08 },   // Anaheim
+			{ lon: -118.14, lat: 34.15, r: 0.05 },   // Pasadena
+			{ lon: -112.07, lat: 33.45, r: 0.12 },   // Phoenix
+			{ lon: -117.38, lat: 33.98, r: 0.06 },   // Riverside
+			{ lon: -117.29, lat: 34.11, r: 0.05 },   // San Bernardino
+		];
+		for (const c of urbanCenters) {
+			const d = Math.sqrt((lon - c.lon) ** 2 + (lat - c.lat) ** 2);
+			if (d < c.r) return 'urban';
+		}
+
+		// Default: chaparral for mid-altitude, desert for low flat areas
+		if (altMeters < 300 && lat > 34.5) return 'desert';
+		return 'chaparral';
+	}
+
+	/**
+	 * Get the appropriate tree species for a given altitude and biome
+	 */
+	getSpeciesForPosition(altMeters, lon, lat) {
+		const biome = this.getBiome(lon, lat, altMeters);
 		const candidates = [];
 		for (const [name, species] of Object.entries(TREE_SPECIES)) {
 			if (altMeters >= species.altMin && altMeters <= species.altMax) {
-				candidates.push({ name, ...species });
+				// Species must match biome OR be a universal type
+				if (species.biome === biome) {
+					candidates.push({ name, ...species });
+				}
+			}
+		}
+		// If no candidates, try nearby biomes
+		if (candidates.length === 0) {
+			const fallbackBiomes = {
+				mountain: ['chaparral'],
+				chaparral: ['mountain', 'coastal'],
+				desert: ['chaparral'],
+				coastal: ['urban', 'chaparral'],
+				urban: ['coastal', 'chaparral'],
+			};
+			const fallbacks = fallbackBiomes[biome] || [];
+			for (const fb of fallbacks) {
+				for (const [name, species] of Object.entries(TREE_SPECIES)) {
+					if (altMeters >= species.altMin && altMeters <= species.altMax && species.biome === fb) {
+						candidates.push({ name, ...species });
+					}
+				}
+				if (candidates.length > 0) break;
 			}
 		}
 		return candidates;
 	}
 
 	/**
-	 * Check if a position is likely water (Big Bear Lake, etc.)
+	 * Check if a position is likely water
 	 */
 	isWaterArea(lon, lat) {
 		// Big Bear Lake approximate bounds
-		if (lat > 34.23 && lat < 34.27 && lon > -116.95 && lon < -116.85) {
-			return true;
-		}
+		if (lat > 34.23 && lat < 34.27 && lon > -116.95 && lon < -116.85) return true;
 		// Baldwin Lake
-		if (lat > 34.27 && lat < 34.30 && lon > -116.85 && lon < -116.80) {
-			return true;
-		}
+		if (lat > 34.27 && lat < 34.30 && lon > -116.85 && lon < -116.80) return true;
+		// Lake Arrowhead
+		if (lat > 34.25 && lat < 34.27 && lon > -117.20 && lon < -117.17) return true;
+		// Silverwood Lake
+		if (lat > 34.28 && lat < 34.31 && lon > -117.35 && lon < -117.32) return true;
 		return false;
 	}
 
@@ -227,7 +394,7 @@ export class TreeSystem {
 		}
 
 		const altMeters = terrainHeight; // Already in meters from Cesium
-		const species = this.getSpeciesForAltitude(altMeters);
+		const species = this.getSpeciesForPosition(altMeters, cellLon, cellLat);
 		if (species.length === 0) {
 			this.activeCells.set(key, []);
 			return;

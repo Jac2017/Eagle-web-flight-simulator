@@ -98,8 +98,10 @@ src/
     jetFlame.js            # Visual effects (unused for eagle)
   world/
     cesiumWorld.js         # CesiumJS initialization, camera control
-    treeSystem.js          # Procedural 3D forest with instanced meshes
-    waterSystem.js         # Water rendering with custom shaders
+    treeSystem.js          # Multi-biome procedural flora with instanced meshes
+    waterSystem.js         # Water rendering with custom GLSL shaders
+    landmarks.js           # Named POI 3D structures (ski resort, Vegas, Hollywood, etc.)
+    citySystem.js          # Procedural 3D buildings for 20+ major cities
     territory.js           # 500-mile territory boundary system
     regions.js             # Geolocation utilities
   systems/
@@ -153,9 +155,11 @@ Speed ranges:
 | Flapping cruise | 25-45 units |
 | Power dive | up to 120 units |
 
-### 3D Tree System (`treeSystem.js`)
+### Multi-Biome Flora System (`treeSystem.js`)
 
-Procedural forests matching real Big Bear Valley vegetation zones:
+Procedural vegetation across 5 biomes with 20+ species, matching real Southern California geography:
+
+**Mountain Biome** (Big Bear area, San Bernardino Mountains):
 
 | Species | Height | Altitude Band | Density |
 |---------|--------|---------------|---------|
@@ -165,15 +169,113 @@ Procedural forests matching real Big Bear Valley vegetation zones:
 | Scrub Oak | 6m (20 ft) | 3,300 - 5,900 ft | 30% |
 | Alpine Pine | 8m (26 ft) | 8,900 - 11,500 ft | 15% |
 
+**Desert Biome** (Mojave, 29 Palms, Fort Irwin, Phoenix, Tucson):
+
+| Species | Height | Altitude Band | Density |
+|---------|--------|---------------|---------|
+| Joshua Tree | 8m (26 ft) | 1,300 - 5,900 ft | 12% |
+| Saguaro Cactus | 10m (33 ft) | 650 - 3,900 ft | 6% |
+| Creosote Bush | 2m (6.5 ft) | 0 - 4,900 ft | 20% |
+| Desert Sage | 1.2m (4 ft) | 0 - 6,500 ft | 25% |
+| Smokey Tree | 5m (16 ft) | 300 - 2,950 ft | 8% |
+
+**Coastal/Palm Biome** (LA coast, Palm Springs, San Diego):
+
+| Species | Height | Altitude Band | Density |
+|---------|--------|---------------|---------|
+| California Fan Palm | 18m (59 ft) | 0 - 1,640 ft | 30% |
+| Date Palm | 15m (49 ft) | 0 - 980 ft | 25% |
+| Mexican Fan Palm | 25m (82 ft) | 0 - 2,300 ft | 20% |
+| Eucalyptus | 20m (65 ft) | 0 - 1,970 ft | 15% |
+
+**Urban Biome** (LA, San Diego, Phoenix, Vegas, major cities):
+
+| Species | Height | Altitude Band | Density |
+|---------|--------|---------------|---------|
+| London Plane Tree | 12m (39 ft) | 0 - 1,640 ft | 15% |
+| Jacaranda | 10m (33 ft) | 0 - 1,640 ft | 10% |
+| Urban Oak | 14m (46 ft) | 0 - 2,625 ft | 12% |
+
+**Chaparral Biome** (foothills, mid-altitude):
+
+| Species | Height | Altitude Band | Density |
+|---------|--------|---------------|---------|
+| Manzanita | 3m (10 ft) | 980 - 4,900 ft | 35% |
+| California Laurel | 10m (33 ft) | 650 - 3,930 ft | 20% |
+| Ceanothus | 4m (13 ft) | 650 - 4,900 ft | 30% |
+
 Technical details:
+- **Biome detection** from lat/lon/altitude using real SoCal geography boundaries
 - **Instanced meshes** (up to 3,000 trees) for GPU-efficient rendering
 - **LOD system** - Full detail within 500m, simplified at 500-1,500m, minimal beyond
 - **Seeded random** placement for deterministic, consistent forests across sessions
-- **Altitude-based species selection** - Multiple species overlap at transition zones
-- **Water exclusion** - No trees placed over Big Bear Lake, Baldwin Lake, etc.
-- **Adaptive render distance** - Fewer trees rendered at high altitude (invisible anyway)
+- **Biome fallback** - If no species match, tries adjacent biome types
+- **Water exclusion** - No trees placed over Big Bear Lake, Baldwin Lake, Lake Arrowhead, Silverwood Lake
+- **Adaptive render distance** - Fewer trees rendered at high altitude
 - **Color variation** - Per-tree trunk and crown color randomization for natural appearance
 - **Grid-based streaming** - Trees generated in 40m cells, streamed around eagle position
+
+### Landmark System (`landmarks.js`)
+
+Named real-world points of interest with custom 3D structures:
+
+| Landmark | Location | Key Structures |
+|----------|----------|----------------|
+| **Big Bear Ski Resort** | Snow Summit/Bear Mountain | Lodge buildings, ski lift towers, parking area |
+| **Las Vegas Strip** | Las Vegas Blvd | Luxor pyramid with light beam, Bellagio, Wynn, STRAT tower (350m), MGM Grand, Paris Eiffel replica, Caesars, Aria, Venetian, Cosmopolitan, Mandalay Bay, strip road |
+| **Hollywood Hills** | Hollywood Sign area | 9 sign letters (14m tall white), Griffith Observatory dome |
+| **Twentynine Palms** | Marine Corps base | Base buildings, hangars, 2.5km runway, control tower, barracks |
+| **Fort Irwin NTC** | National Training Center | Command buildings, hangars, motor pool, barracks, comms tower, water tower |
+| **Reagan Presidential Library** | Simi Valley | Museum (Spanish Colonial), Air Force One Pavilion, courtyard, tower |
+| **Rose Bowl** | Pasadena | 200m oval stadium with segmented walls, green field, parking lots |
+
+Technical details:
+- Each landmark has multiple custom 3D structures (boxes, pyramids, domes, cylinders, hangars, stadiums)
+- Distance-adaptive rendering with visibility scaling
+- Automatic LOD - landmarks visible from farther at higher altitude
+- All structures use shared geometry cache for GPU efficiency
+
+### City Building System (`citySystem.js`)
+
+Procedural 3D buildings for 20 major cities across the territory:
+
+**Major metros** (thousands of buildings):
+
+| City | Max Building Height | Radius | Style |
+|------|-------------------|--------|-------|
+| Los Angeles / Downtown LA | 310m (1,017 ft) | 5km | Modern glass/steel |
+| Las Vegas | 100m | 4km | Modern |
+| San Diego | 150m | 3.5km | Modern |
+| Phoenix | 130m | 5km | Modern |
+
+**Mid-size cities** (hundreds of buildings):
+
+| City | Max Height | Style |
+|------|-----------|-------|
+| Long Beach | 90m | Modern |
+| Riverside | 50m | Suburban |
+| San Bernardino | 40m | Suburban |
+| Bakersfield | 40m | Suburban |
+| Palm Springs | 30m | Resort |
+| Santa Barbara | 30m | Spanish Colonial |
+| Pasadena | 50m | Modern |
+| Glendale | 70m | Modern |
+| Burbank | 50m | Modern |
+| Tucson | 60m | Desert |
+| Henderson | 30m | Suburban |
+| Anaheim | 50m | Modern |
+| Irvine | 50m | Modern |
+| Oxnard | 25m | Suburban |
+| Fresno | 50m | Suburban |
+
+Technical details:
+- Up to 5,000 instanced building meshes for GPU performance
+- **Downtown density gradient** - Taller, denser buildings near city center, shorter toward edges
+- **Road grid gaps** - Every Nth cell left empty to create street grid pattern
+- **Style-based color palettes** - Modern (blue-gray), suburban (tan), resort (cream), Spanish (terracotta), desert (sand)
+- **LOD filtering** - Only tall buildings rendered at distance; short buildings culled
+- **Per-building variation** - Size, height, color randomized within style constraints
+- **Distance-based rendering** - Cities only rendered when eagle is within range
 
 ### Water Rendering (`waterSystem.js`)
 
