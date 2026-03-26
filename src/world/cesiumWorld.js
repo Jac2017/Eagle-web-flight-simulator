@@ -7,7 +7,7 @@ let pauseMiniViewer;
 export function initCesium() {
 	// Use Cesium Ion token if available, otherwise fall back to bundled textures
 	// Users should set their own token from https://ion.cesium.com/ (free)
-	Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2ZGEwNjkzZC0xNjI1LTQ0NDYtYTc3Yi1mOTVjZjI3OGQ0MDkiLCJpZCI6MjU5LCJpYXQiOjE3MzQ0Mzk4NDd9.JB1VljVNxoXpSDlt0bBFaHT25kMfQxMI2bDEpqM8AGA';
+	Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzMzA1M2Q0MC01YzY1LTRkNDMtYWYzMS05MDdmZmI2MzAwYjYiLCJpZCI6NDA5NTYwLCJpYXQiOjE3NzQ1NDA1MjR9.szCoX8ALGsZ-jqCF6lvDtejplRGt2AJmQjZ2G7_51G0';
 
 	let terrainOption;
 	let baseLayerOption;
