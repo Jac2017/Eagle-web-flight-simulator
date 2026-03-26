@@ -5,11 +5,21 @@ let miniViewer;
 let pauseMiniViewer;
 
 export function initCesium() {
-	// Cesium Ion default access token for terrain and imagery
+	// Use Cesium Ion token if available, otherwise fall back to bundled textures
+	// Users should set their own token from https://ion.cesium.com/ (free)
 	Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2ZGEwNjkzZC0xNjI1LTQ0NDYtYTc3Yi1mOTVjZjI3OGQ0MDkiLCJpZCI6MjU5LCJpYXQiOjE3MzQ0Mzk4NDd9.JB1VljVNxoXpSDlt0bBFaHT25kMfQxMI2bDEpqM8AGA';
 
+	let terrainOption;
+	let baseLayerOption;
+	try {
+		terrainOption = Cesium.Terrain.fromWorldTerrain();
+	} catch (e) {
+		console.warn('Cesium World Terrain unavailable, using ellipsoid');
+		terrainOption = undefined;
+	}
+
 	viewer = new Cesium.Viewer("cesiumContainer", {
-		terrain: Cesium.Terrain.fromWorldTerrain(),
+		terrain: terrainOption,
 		timeline: false,
 		animation: false,
 		baseLayerPicker: false,
@@ -92,6 +102,14 @@ export function initCesium() {
 		v.scene.globe.skipLevels = 1;
 
 		v._cesiumWidget._creditContainer.style.display = "none";
+	});
+
+	// Set globe base color so it's not black if tiles fail to load
+	viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#1a3a1a');
+
+	// Handle terrain provider errors gracefully
+	viewer.scene.globe.tileFailed.addEventListener((err) => {
+		// Silently handle tile failures - terrain still partially renders
 	});
 
 	[miniViewer, pauseMiniViewer].forEach(v => {

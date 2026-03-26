@@ -3,10 +3,10 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { initCesium, setCameraToPlane, getViewer, setControlsEnabled, setRenderOptimization } from './world/cesiumWorld';
 import { PlanePhysics } from './plane/planePhysics';
 import { PlaneController } from './plane/planeController';
+import { createEagleModel, updateEagleAnimation } from './plane/eagleModel';
 import { movePosition } from './utils/math';
 import { calculateDistance, reverseGeocode } from './world/regions';
 import { HUD } from './ui/hud';
-import { JetFlame } from './plane/jetFlame';
 import { WeaponSystem } from './systems/weaponSystem';
 import { soundManager } from './utils/soundManager';
 import { NPCSystem } from './systems/npcSystem';
@@ -153,8 +153,8 @@ let pauseStartTime = 0;
 
 let scene, camera, renderer;
 let planeModel;
-let jetFlames = [];
-let mixer, clock;
+let eagleGroup; // The procedural eagle model
+let clock;
 let physics = new PlanePhysics();
 let controller = new PlaneController();
 let hud = new HUD();
@@ -397,55 +397,36 @@ function initThree() {
 
 	initSounds().catch(err => console.error('Failed to init sounds', err));
 
-	const loader = new GLTFLoader();
-	loader.load('./assets/models/f-15.glb', (gltf) => {
-		const mesh = gltf.scene;
+	// Create procedural eagle model (no GLB loading needed)
+	eagleGroup = createEagleModel();
 
-		planeModel = new THREE.Group();
-		planeModel.add(mesh);
-		scene.add(planeModel);
+	planeModel = new THREE.Group();
+	planeModel.add(eagleGroup);
+	scene.add(planeModel);
 
-		planeModel.layers.set(1);
-		planeModel.traverse(child => {
-			child.layers.set(1);
-		});
-
-		const box = new THREE.Box3().setFromObject(mesh);
-		const center = box.getCenter(new THREE.Vector3());
-		mesh.position.sub(center);
-
-		planeModel.position.copy(BASE_PLANE_POS);
-		planeModel.scale.set(0.15, 0.15, 0.15);
-
-		// No jet flames for eagle
-
-		weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
-		weaponSystem.onKill = (npc) => {
-			state.score += 500;
-			try { soundManager.play('glitch-random'); } catch (e) { }
-			if (hud) {
-				hud.showKillNotification(npc.name, 500);
-			}
-		};
-
-		planeModel.traverse(child => {
-			child.layers.set(1);
-		});
-
-		mixer = new THREE.AnimationMixer(mesh);
-		const clip = THREE.AnimationClip.findByName(gltf.animations, 'flight_mode');
-		if (clip) {
-			const action = mixer.clipAction(clip);
-			action.setLoop(THREE.LoopOnce);
-			action.clampWhenFinished = true;
-			action.play();
-		}
-
-		loadingStatus.model = true;
-		updateLoadingUI();
-	}, undefined, (error) => {
-		console.error('Error loading model:', error);
+	planeModel.layers.set(1);
+	planeModel.traverse(child => {
+		child.layers.set(1);
 	});
+
+	planeModel.position.copy(BASE_PLANE_POS);
+	planeModel.scale.set(1.5, 1.5, 1.5); // Scale to visible size from cockpit view
+
+	weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
+	weaponSystem.onKill = (npc) => {
+		state.score += 500;
+		try { soundManager.play('glitch-random'); } catch (e) { }
+		if (hud) {
+			hud.showKillNotification(npc.name, 500);
+		}
+	};
+
+	planeModel.traverse(child => {
+		child.layers.set(1);
+	});
+
+	loadingStatus.model = true;
+	updateLoadingUI();
 }
 
 function update(dt) {
@@ -845,7 +826,16 @@ function animate() {
 			hud.updatePauseMenu(state, currentRegionName, npcSystem ? npcSystem.npcs : []);
 		}
 
-		if (mixer) mixer.update(dt);
+		// Animate eagle wings
+		if (eagleGroup) {
+			updateEagleAnimation(
+				eagleGroup, dt,
+				state.throttle || 0,
+				state.isGliding || false,
+				state.isBoosting || false,
+				state.isTurbo || false
+			);
+		}
 
 		try { if (currentState === States.FLYING) particles.update(dt); } catch (e) { }
 
