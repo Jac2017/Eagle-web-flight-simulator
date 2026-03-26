@@ -108,9 +108,11 @@ export function initCesium() {
 	viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#1a3a1a');
 
 	// Handle terrain provider errors gracefully
-	viewer.scene.globe.tileFailed.addEventListener((err) => {
-		// Silently handle tile failures - terrain still partially renders
-	});
+	try {
+		if (viewer.scene.globe.tileFailed) {
+			viewer.scene.globe.tileFailed.addEventListener(() => {});
+		}
+	} catch (e) { /* tileFailed not available in this version */ }
 
 	[miniViewer, pauseMiniViewer].forEach(v => {
 		v.scene.globe.enableLighting = false;

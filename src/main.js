@@ -398,38 +398,41 @@ function initThree() {
 	initSounds().catch(err => {
 		console.error('Failed to init sounds', err);
 	}).finally(() => {
-		// Always mark audio as loaded even if sounds fail
 		loadingStatus.audio = true;
 		updateLoadingUI();
 	});
 
-	// Create procedural eagle model (no GLB loading needed)
-	eagleGroup = createEagleModel();
+	// Create procedural eagle model
+	try {
+		eagleGroup = createEagleModel();
 
-	planeModel = new THREE.Group();
-	planeModel.add(eagleGroup);
-	scene.add(planeModel);
+		planeModel = new THREE.Group();
+		planeModel.add(eagleGroup);
+		scene.add(planeModel);
 
-	planeModel.layers.set(1);
-	planeModel.traverse(child => {
-		child.layers.set(1);
-	});
+		planeModel.layers.set(1);
+		planeModel.traverse(child => {
+			child.layers.set(1);
+		});
 
-	planeModel.position.copy(BASE_PLANE_POS);
-	planeModel.scale.set(1.5, 1.5, 1.5); // Scale to visible size from cockpit view
+		planeModel.position.copy(BASE_PLANE_POS);
+		planeModel.scale.set(1.5, 1.5, 1.5);
 
-	weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
-	weaponSystem.onKill = (npc) => {
-		state.score += 500;
-		try { soundManager.play('glitch-random'); } catch (e) { }
-		if (hud) {
-			hud.showKillNotification(npc.name, 500);
-		}
-	};
+		weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
+		weaponSystem.onKill = (npc) => {
+			state.score += 500;
+			try { soundManager.play('glitch-random'); } catch (e) { }
+			if (hud) {
+				hud.showKillNotification(npc.name, 500);
+			}
+		};
 
-	planeModel.traverse(child => {
-		child.layers.set(1);
-	});
+		planeModel.traverse(child => {
+			child.layers.set(1);
+		});
+	} catch (e) {
+		console.error('Failed to create eagle model or weapon system', e);
+	}
 
 	loadingStatus.model = true;
 	updateLoadingUI();
