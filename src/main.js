@@ -395,7 +395,13 @@ function initThree() {
 		console.error('Failed to init day/night weather system', e);
 	}
 
-	initSounds().catch(err => console.error('Failed to init sounds', err));
+	initSounds().catch(err => {
+		console.error('Failed to init sounds', err);
+	}).finally(() => {
+		// Always mark audio as loaded even if sounds fail
+		loadingStatus.audio = true;
+		updateLoadingUI();
+	});
 
 	// Create procedural eagle model (no GLB loading needed)
 	eagleGroup = createEagleModel();
@@ -1431,34 +1437,42 @@ const viewer = initCesium();
 loadingStatus.cesium = true;
 updateLoadingUI();
 
-// Fallback: if globe hasn't loaded after 15s, enable start anyway
+// Fallback: if globe hasn't loaded after 8s, enable start anyway
 setTimeout(() => {
 	if (!loadingStatus.globe) {
 		console.warn('Globe loading timeout - enabling start button anyway');
 		loadingStatus.globe = true;
 		updateLoadingUI();
 	}
-}, 15000);
+}, 8000);
 
 let globeLoadingStarted = false;
-const unregisterGlobeTracker = viewer.scene.postRender.addEventListener(() => {
-	const tilesLoaded = viewer.scene.globe.tilesLoaded;
+try {
+	const unregisterGlobeTracker = viewer.scene.postRender.addEventListener(() => {
+		try {
+			const tilesLoaded = viewer.scene.globe.tilesLoaded;
 
-	if (!tilesLoaded) {
-		globeLoadingStarted = true;
-	}
+			if (!tilesLoaded) {
+				globeLoadingStarted = true;
+			}
 
-	if (tilesLoaded) {
-		const surface = viewer.scene.globe._surface;
-		const hasTiles = surface && surface._tilesToRender && surface._tilesToRender.length > 0;
-
-		if (hasTiles) {
+			if (tilesLoaded && globeLoadingStarted) {
+				loadingStatus.globe = true;
+				updateLoadingUI();
+				unregisterGlobeTracker();
+			}
+		} catch (e) {
+			// If internal API fails, just mark as loaded
 			loadingStatus.globe = true;
 			updateLoadingUI();
 			unregisterGlobeTracker();
 		}
-	}
-});
+	});
+} catch (e) {
+	console.warn('Globe tracker setup failed', e);
+	loadingStatus.globe = true;
+	updateLoadingUI();
+}
 
 viewer.scene.globe.tileLoadProgressEvent.addEventListener((queueLength) => {
 	if (loadingIndicator && loadingText) {
