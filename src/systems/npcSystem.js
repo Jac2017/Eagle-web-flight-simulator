@@ -194,6 +194,10 @@ export class NPCSystem {
 		this._scratchCameraMatrix = new Cesium.Matrix4();
 	}
 
+	isOverLake(lon, lat) {
+		return lon >= LAKE.lonMin && lon <= LAKE.lonMax && lat >= LAKE.latMin && lat <= LAKE.latMax;
+	}
+
 	spawnNPC(playerLon, playerLat, playerAlt) {
 		const typeName = pickType();
 		const info = PREY_TYPES[typeName];
@@ -204,23 +208,27 @@ export class NPCSystem {
 		speed = info.speed + (Math.random() - 0.5) * info.speed * 0.4;
 
 		if (info.category === 'ground') {
-			// Spawn near the nest area at ground level
-			const angle = Math.random() * Math.PI * 2;
-			const dist = 100 + Math.random() * NEST_AREA.radiusM;
-			const mPerDegLon = 111320 * Math.cos(NEST_AREA.lat * Math.PI / 180);
-			lon = NEST_AREA.lon + Math.cos(angle) * dist / mPerDegLon;
-			lat = NEST_AREA.lat + Math.sin(angle) * dist / 111320;
+			// Spawn near the nest area at ground level - NOT over water
+			let attempts = 0;
+			do {
+				const angle = Math.random() * Math.PI * 2;
+				const dist = 100 + Math.random() * NEST_AREA.radiusM;
+				const mPerDegLon = 111320 * Math.cos(NEST_AREA.lat * Math.PI / 180);
+				lon = NEST_AREA.lon + Math.cos(angle) * dist / mPerDegLon;
+				lat = NEST_AREA.lat + Math.sin(angle) * dist / 111320;
+				attempts++;
+			} while (this.isOverLake(lon, lat) && attempts < 10);
 
 			// Get terrain height
 			const cartographic = Cesium.Cartographic.fromDegrees(lon, lat);
 			const terrainHeight = this.viewer.scene.globe.getHeight(cartographic);
-			alt = (terrainHeight !== undefined ? terrainHeight : 2070) + 0.5; // Just above ground
+			alt = (terrainHeight !== undefined ? terrainHeight : 2070) + 0.3;
 
 		} else if (info.category === 'water') {
-			// Spawn in Big Bear Lake
-			lon = LAKE.lonMin + Math.random() * (LAKE.lonMax - LAKE.lonMin);
-			lat = LAKE.latMin + Math.random() * (LAKE.latMax - LAKE.latMin);
-			alt = LAKE.elevation + 0.3; // Just at water surface
+			// Fish spawn ONLY in Big Bear Lake water
+			lon = LAKE.lonMin + 0.05 * (LAKE.lonMax - LAKE.lonMin) + Math.random() * 0.9 * (LAKE.lonMax - LAKE.lonMin);
+			lat = LAKE.latMin + 0.05 * (LAKE.latMax - LAKE.latMin) + Math.random() * 0.9 * (LAKE.latMax - LAKE.latMin);
+			alt = LAKE.elevation - 0.5 + Math.random() * 0.8; // At/slightly below water surface
 
 		} else {
 			// Airborne - spawn around the player at flying altitude
@@ -335,20 +343,34 @@ export class NPCSystem {
 			// Move
 			if (npc.speed > 0) {
 				if (npc.category === 'ground') {
-					// Ground: move along surface, no altitude change
+					// Ground: move along surface, never enter water
 					const newPos = movePosition(npc.lon, npc.lat, npc.alt, npc.heading, 0, npc.speed * dt);
-					npc.lon = newPos.lon;
-					npc.lat = newPos.lat;
-					// Keep on terrain
+					if (this.isOverLake(newPos.lon, newPos.lat)) {
+						// About to enter water - turn away
+						npc.heading = (npc.heading + 140 + Math.random() * 80) % 360;
+						npc.targetHeading = npc.heading;
+					} else {
+						npc.lon = newPos.lon;
+						npc.lat = newPos.lat;
+					}
+					// Keep on terrain surface
 					const cart = Cesium.Cartographic.fromDegrees(npc.lon, npc.lat);
 					const th = this.viewer.scene.globe.getHeight(cart);
-					if (th !== undefined) npc.alt = th + 0.5;
+					if (th !== undefined) npc.alt = th + 0.3;
 				} else if (npc.category === 'water') {
-					// Water: stay at lake surface
+					// Fish: stay strictly in lake water, reverse at boundaries
 					const newPos = movePosition(npc.lon, npc.lat, npc.alt, npc.heading, 0, npc.speed * dt);
-					npc.lon = Math.max(LAKE.lonMin, Math.min(LAKE.lonMax, newPos.lon));
-					npc.lat = Math.max(LAKE.latMin, Math.min(LAKE.latMax, newPos.lat));
-					npc.alt = LAKE.elevation + Math.sin(npc.time * 2) * 0.2; // Bob in water
+					if (newPos.lon < LAKE.lonMin || newPos.lon > LAKE.lonMax ||
+						newPos.lat < LAKE.latMin || newPos.lat > LAKE.latMax) {
+						// Hit lake edge - turn around
+						npc.heading = (npc.heading + 150 + Math.random() * 60) % 360;
+						npc.targetHeading = npc.heading;
+					} else {
+						npc.lon = newPos.lon;
+						npc.lat = newPos.lat;
+					}
+					// Fish stay at/below water surface, occasionally surface
+					npc.alt = LAKE.elevation - 0.3 + Math.sin(npc.time * 1.5) * 0.4;
 				} else {
 					const newPos = movePosition(npc.lon, npc.lat, npc.alt, npc.heading, npc.pitch, npc.speed * dt);
 					npc.lon = newPos.lon;
