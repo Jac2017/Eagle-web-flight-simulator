@@ -11,6 +11,7 @@ import { WeaponSystem } from './systems/weaponSystem';
 import { soundManager } from './utils/soundManager';
 import { NPCSystem } from './systems/npcSystem';
 import { DialogueSystem } from './systems/dialogueSystem';
+import { AmbientSoundSystem } from './systems/ambientSound';
 import * as Cesium from 'cesium';
 import { particles } from './utils/particles';
 import { TreeSystem } from './world/treeSystem';
@@ -128,7 +129,7 @@ function applySettings() {
 let state = {
 	lon: NEST_LOCATION.lon,
 	lat: NEST_LOCATION.lat,
-	alt: (NEST_LOCATION.elevation + NEST_LOCATION.treeHeight + 50) / 0.3048, // 50m above nest, in feet
+	alt: (NEST_LOCATION.elevation + NEST_LOCATION.treeHeight + 5) / 0.3048, // 5m above nest - treetop launch
 	heading: NEST_LOCATION.heading,
 	pitch: 0,
 	roll: 0,
@@ -161,6 +162,7 @@ let hud = new HUD();
 let npcSystem;
 let weaponSystem;
 let dialogueSystem = new DialogueSystem();
+let ambientSound = new AmbientSoundSystem();
 let treeSystem;
 let waterSystem;
 let landmarkSystem;
@@ -507,35 +509,9 @@ function update(dt) {
 	checkCrash();
 	checkGPWS();
 
-	if (soundManager.isPlaying('jet-engine')) {
-		const minSpeed = 20;
-		const maxSpeed = 120;
-		const minVol = 0.3;
-		const maxVol = 0.5;
-		const speedFactor = Math.max(0, Math.min(1.0, (state.speed - minSpeed) / (maxSpeed - minSpeed)));
-		const engineVol = minVol + speedFactor * (maxVol - minVol);
-		soundManager.setVolume('jet-engine', engineVol);
-	}
-
-	if (state.isBoosting && !lastIsBoosting) {
-		soundManager.play('boost');
-	}
-
-	if (state.throttle > lastThrottleLevel + 0.01) {
-		if (!soundManager.isPlaying('throttle')) {
-			soundManager.play('throttle');
-		}
-	}
-	lastThrottleLevel = state.throttle;
-
-	if (Math.abs(input.pitch) > 0.5) {
-		if (!soundManager.isPlaying('pitch')) {
-			soundManager.play('pitch', 0.1);
-		}
-	} else {
-		if (soundManager.isPlaying('pitch')) {
-			soundManager.stop('pitch', 0.1);
-		}
+	// Ambient sound system handles all flight audio
+	if (ambientSound) {
+		try { ambientSound.update(dt, state); } catch (e) { }
 	}
 
 	if (Math.abs(input.roll) > 0.5 || Math.abs(input.yaw) > 0.5) {
@@ -1269,7 +1245,7 @@ document.getElementById('confirmSpawnBtn').onclick = () => {
 
 		setControlsEnabled(false);
 
-		state.speed = 30;
+		state.speed = 12; // Gentle launch speed - eagle pushes off from perch
 		state.pitch = 0;
 		state.roll = 0;
 
@@ -1336,7 +1312,9 @@ document.getElementById('confirmSpawnBtn').onclick = () => {
 				threeContainer.classList.remove('hidden');
 				hud.resizeMinimap();
 				currentState = States.FLYING;
-				soundManager.play('jet-engine', 1.0);
+				// Start ambient nature sounds instead of jet engine
+				soundManager.play('wind', 0.5);
+				if (ambientSound) ambientSound.startFlight();
 				if (vignette) vignette.style.opacity = '0';
 
 				// Show mobile controls when entering flight
