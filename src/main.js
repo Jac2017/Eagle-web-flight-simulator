@@ -422,10 +422,11 @@ function initThree() {
 
 		weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
 		weaponSystem.onKill = (npc) => {
-			state.score += 500;
+			const pts = npc.score || 500;
+			state.score += pts;
 			try { soundManager.play('glitch-random'); } catch (e) { }
 			if (hud) {
-				hud.showKillNotification(npc.name, 500);
+				hud.showKillNotification(npc.name, pts);
 			}
 		};
 
@@ -1489,7 +1490,7 @@ initialCameraView = {
 };
 
 initThree();
-npcSystem = new NPCSystem(viewer, scene, new GLTFLoader());
+npcSystem = new NPCSystem(viewer, scene, null);
 
 // Create territory boundary on the map
 try {

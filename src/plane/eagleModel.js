@@ -1,150 +1,197 @@
 import * as THREE from 'three';
 
 /**
- * Procedural Bald Eagle - anatomically proportioned with multi-segment wings.
+ * Procedural Bald Eagle - anatomically detailed with multi-segment wings.
  *
- * Real bald eagle proportions:
- * - Body length: ~80cm nose to tail
- * - Wingspan: ~2m (6.5 ft)
- * - Weight: ~4-6 kg
- * - Wing chord: ~25cm
+ * Real bald eagle reference:
+ * - Body length: ~80cm, Wingspan: ~2m, Weight: ~4-6kg
+ * - Dark chocolate-brown body plumage
+ * - Bright white head and tail
+ * - Large yellow-orange hooked beak
+ * - Golden-yellow eyes with fierce brow ridge
+ * - Yellow scaled feet with black talons
  */
 
 export function createEagleModel() {
 	const eagle = new THREE.Group();
 
-	// === MATERIALS ===
-	const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1E0F04, roughness: 0.8, metalness: 0.0, flatShading: true });
+	// === MATERIALS (PBR for realistic look) ===
+	const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1E0F04, roughness: 0.85, metalness: 0.0, flatShading: true });
+	const wingTopMat = new THREE.MeshStandardMaterial({ color: 0x150800, roughness: 0.80, flatShading: true, side: THREE.DoubleSide });
+	const wingUnderMat = new THREE.MeshStandardMaterial({ color: 0x2A1A0A, roughness: 0.85, flatShading: true, side: THREE.DoubleSide });
 	const underMat = new THREE.MeshStandardMaterial({ color: 0x3B2515, roughness: 0.85, flatShading: true });
-	const wingTopMat = new THREE.MeshStandardMaterial({ color: 0x15080 , roughness: 0.75, flatShading: true, side: THREE.DoubleSide });
-	const wingUnderMat = new THREE.MeshStandardMaterial({ color: 0x2A1A0A, roughness: 0.8, flatShading: true, side: THREE.DoubleSide });
-	const headMat = new THREE.MeshStandardMaterial({ color: 0xF8F4EC, roughness: 0.6, flatShading: true });
-	const beakMat = new THREE.MeshStandardMaterial({ color: 0xE8A000, roughness: 0.4, metalness: 0.1, flatShading: true });
-	const eyeMat = new THREE.MeshStandardMaterial({ color: 0xCCA000, roughness: 0.3, metalness: 0.2 }); // Golden iris
+	const headMat = new THREE.MeshStandardMaterial({ color: 0xF8F4EC, roughness: 0.55, flatShading: true });
+	const beakMat = new THREE.MeshStandardMaterial({ color: 0xE8A000, roughness: 0.35, metalness: 0.1, flatShading: true });
+	const eyeMat = new THREE.MeshStandardMaterial({ color: 0xCCA000, roughness: 0.3, metalness: 0.2 });
 	const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-	const tailMat = new THREE.MeshStandardMaterial({ color: 0xF0EDE0, roughness: 0.7, flatShading: true });
+	const tailMat = new THREE.MeshStandardMaterial({ color: 0xF0EDE0, roughness: 0.65, flatShading: true });
 	const talonMat = new THREE.MeshStandardMaterial({ color: 0xE8A000, roughness: 0.5, flatShading: true });
-	const featherTipMat = new THREE.MeshStandardMaterial({ color: 0x0A0400, roughness: 0.8, flatShading: true, side: THREE.DoubleSide });
+	const featherTipMat = new THREE.MeshStandardMaterial({ color: 0x0A0400, roughness: 0.85, flatShading: true, side: THREE.DoubleSide });
+	const neckMat = new THREE.MeshStandardMaterial({ color: 0xE8E0D0, roughness: 0.6, flatShading: true });
 
-	// === BODY - streamlined fuselage shape ===
+	// === BODY - streamlined teardrop shape ===
 	const bodyGeo = new THREE.SphereGeometry(1, 10, 8);
-	bodyGeo.scale(0.08, 0.055, 0.20);
+	bodyGeo.scale(0.085, 0.06, 0.22);
 	const body = new THREE.Mesh(bodyGeo, bodyMat);
 	eagle.add(body);
 
-	// Keel/breast (lighter, rounder underside)
+	// Keel/breast
 	const keelGeo = new THREE.SphereGeometry(1, 8, 6);
-	keelGeo.scale(0.065, 0.05, 0.14);
+	keelGeo.scale(0.07, 0.055, 0.15);
 	const keel = new THREE.Mesh(keelGeo, underMat);
-	keel.position.set(0, -0.015, 0.04);
+	keel.position.set(0, -0.018, 0.03);
 	eagle.add(keel);
 
-	// Neck
-	const neckGeo = new THREE.CylinderGeometry(0.03, 0.04, 0.06, 6);
-	const neck = new THREE.Mesh(neckGeo, headMat);
-	neck.position.set(0, 0.02, 0.17);
-	neck.rotation.x = -0.3;
+	// Back ridge (slightly raised spine area)
+	const spineGeo = new THREE.BoxGeometry(0.03, 0.008, 0.16);
+	const spine = new THREE.Mesh(spineGeo, bodyMat);
+	spine.position.set(0, 0.04, -0.02);
+	eagle.add(spine);
+
+	// === NECK (transition from brown body to white head) ===
+	const neckGeo = new THREE.CylinderGeometry(0.028, 0.04, 0.05, 6);
+	const neck = new THREE.Mesh(neckGeo, neckMat);
+	neck.position.set(0, 0.025, 0.17);
+	neck.rotation.x = -0.25;
 	eagle.add(neck);
 
+	// Neck feather ruff
+	const ruffGeo = new THREE.SphereGeometry(0.032, 6, 5);
+	ruffGeo.scale(1, 0.7, 1);
+	const ruff = new THREE.Mesh(ruffGeo, headMat);
+	ruff.position.set(0, 0.015, 0.16);
+	eagle.add(ruff);
+
 	// === HEAD ===
-	const headGeo = new THREE.SphereGeometry(0.04, 8, 7);
-	headGeo.scale(1.0, 0.95, 1.15);
+	const headGeo = new THREE.SphereGeometry(0.042, 8, 7);
+	headGeo.scale(1.0, 0.95, 1.1);
 	const head = new THREE.Mesh(headGeo, headMat);
-	head.position.set(0, 0.04, 0.20);
+	head.position.set(0, 0.045, 0.21);
 	eagle.add(head);
 
-	// Brow ridge (fierce look)
-	const browGeo = new THREE.BoxGeometry(0.06, 0.012, 0.025);
+	// Crown (top of head slightly raised)
+	const crownGeo = new THREE.SphereGeometry(0.025, 6, 5);
+	crownGeo.scale(1.2, 0.5, 1.0);
+	const crown = new THREE.Mesh(crownGeo, headMat);
+	crown.position.set(0, 0.068, 0.21);
+	eagle.add(crown);
+
+	// Brow ridge (gives the fierce eagle stare)
+	const browGeo = new THREE.BoxGeometry(0.055, 0.010, 0.022);
 	const brow = new THREE.Mesh(browGeo, new THREE.MeshStandardMaterial({ color: 0xEAE6D8, roughness: 0.7, flatShading: true }));
-	brow.position.set(0, 0.058, 0.215);
+	brow.position.set(0, 0.062, 0.225);
 	eagle.add(brow);
 
-	// Beak - upper and lower mandible
-	const upperBeakGeo = new THREE.ConeGeometry(0.012, 0.055, 4);
+	// === BEAK (hooked raptor beak) ===
+	// Upper mandible - curves down
+	const upperBeakGeo = new THREE.ConeGeometry(0.013, 0.05, 5);
 	const upperBeak = new THREE.Mesh(upperBeakGeo, beakMat);
-	upperBeak.position.set(0, 0.035, 0.25);
-	upperBeak.rotation.x = Math.PI * 0.45;
+	upperBeak.position.set(0, 0.04, 0.255);
+	upperBeak.rotation.x = Math.PI * 0.42;
 	eagle.add(upperBeak);
 
-	const lowerBeakGeo = new THREE.ConeGeometry(0.008, 0.03, 3);
+	// Hook tip
+	const hookGeo = new THREE.SphereGeometry(0.006, 4, 3);
+	hookGeo.scale(0.8, 1.2, 1);
+	const hook = new THREE.Mesh(hookGeo, beakMat);
+	hook.position.set(0, 0.028, 0.268);
+	eagle.add(hook);
+
+	// Lower mandible
+	const lowerBeakGeo = new THREE.ConeGeometry(0.007, 0.025, 4);
 	const lowerBeak = new THREE.Mesh(lowerBeakGeo, beakMat);
-	lowerBeak.position.set(0, 0.025, 0.245);
-	lowerBeak.rotation.x = Math.PI * 0.55;
+	lowerBeak.position.set(0, 0.030, 0.25);
+	lowerBeak.rotation.x = Math.PI * 0.52;
 	eagle.add(lowerBeak);
 
 	// Cere (fleshy area at beak base)
-	const cereGeo = new THREE.SphereGeometry(0.008, 5, 4);
+	const cereGeo = new THREE.SphereGeometry(0.009, 5, 4);
 	const cere = new THREE.Mesh(cereGeo, beakMat);
-	cere.position.set(0, 0.042, 0.23);
+	cere.position.set(0, 0.048, 0.235);
 	eagle.add(cere);
 
-	// Eyes with golden iris
+	// === EYES ===
 	for (const side of [-1, 1]) {
-		const irisGeo = new THREE.SphereGeometry(0.009, 6, 5);
+		// Eye socket indent (darker)
+		const socketGeo = new THREE.SphereGeometry(0.013, 6, 5);
+		const socket = new THREE.Mesh(socketGeo, new THREE.MeshStandardMaterial({ color: 0x2A2010, roughness: 0.9 }));
+		socket.position.set(side * 0.029, 0.052, 0.226);
+		eagle.add(socket);
+
+		// Golden iris
+		const irisGeo = new THREE.SphereGeometry(0.010, 6, 5);
 		const iris = new THREE.Mesh(irisGeo, eyeMat);
-		iris.position.set(side * 0.028, 0.05, 0.225);
+		iris.position.set(side * 0.030, 0.053, 0.228);
 		eagle.add(iris);
 
+		// Black pupil
 		const pupilGeo = new THREE.SphereGeometry(0.005, 5, 4);
 		const pupil = new THREE.Mesh(pupilGeo, pupilMat);
-		pupil.position.set(side * 0.032, 0.05, 0.23);
+		pupil.position.set(side * 0.033, 0.053, 0.233);
 		eagle.add(pupil);
 	}
 
-	// === WINGS - multi-segment with feather groups ===
+	// === WINGS - multi-segment with feather detail ===
 	function buildWing(isLeft) {
 		const sign = isLeft ? 1 : -1;
 		const pivot = new THREE.Group();
-		pivot.position.set(sign * 0.06, 0.01, 0.01);
+		pivot.position.set(sign * 0.065, 0.015, 0.01);
 
-		// Inner wing (humerus + secondaries) - wider, closer to body
-		const innerGeo = new THREE.BoxGeometry(0.40, 0.010, 0.16);
-		innerGeo.translate(sign * 0.20, 0, 0);
+		// Shoulder/scapular area (connects to body)
+		const shoulderGeo = new THREE.BoxGeometry(0.12, 0.015, 0.10);
+		shoulderGeo.translate(sign * 0.06, 0, 0.01);
+		const shoulder = new THREE.Mesh(shoulderGeo, wingTopMat);
+		pivot.add(shoulder);
+
+		// Inner wing (secondaries) - broader chord
+		const innerGeo = new THREE.BoxGeometry(0.32, 0.010, 0.17);
+		innerGeo.translate(sign * 0.28, -0.002, 0);
 		const inner = new THREE.Mesh(innerGeo, wingTopMat);
 		pivot.add(inner);
 
-		// Outer elbow pivot (for more realistic fold)
-		const elbowPivot = new THREE.Group();
-		elbowPivot.position.set(sign * 0.40, 0, 0);
+		// Wing underside coverts
+		const underCovGeo = new THREE.BoxGeometry(0.30, 0.004, 0.13);
+		underCovGeo.translate(sign * 0.27, -0.007, 0);
+		const underCov = new THREE.Mesh(underCovGeo, wingUnderMat);
+		pivot.add(underCov);
 
-		// Outer wing (radius/ulna + primaries) - narrower, longer
-		const outerGeo = new THREE.BoxGeometry(0.50, 0.008, 0.12);
-		outerGeo.translate(sign * 0.25, 0, 0);
-		const outer = new THREE.Mesh(outerGeo, wingTopMat);
-		elbowPivot.add(outer);
-
-		// Primary feather tips - separated "fingers"
-		for (let f = 0; f < 5; f++) {
-			const fLen = 0.08 + (4 - f) * 0.02;
-			const fGeo = new THREE.BoxGeometry(fLen, 0.005, 0.022);
-			fGeo.translate(sign * fLen / 2, 0, 0);
-			const feather = new THREE.Mesh(fGeo, featherTipMat);
-			feather.position.set(
-				sign * 0.48,
-				0,
-				-0.04 + f * 0.025
-			);
-			feather.rotation.y = sign * (f - 2) * 0.06;
-			elbowPivot.add(feather);
-		}
-
-		// Wing underside color strip
-		const underGeo = new THREE.BoxGeometry(0.48, 0.003, 0.10);
-		underGeo.translate(sign * 0.24, -0.005, 0);
-		const under = new THREE.Mesh(underGeo, wingUnderMat);
-		elbowPivot.add(under);
-
-		pivot.add(elbowPivot);
-
-		// Wing covert feathers (small overlapping layers on top)
+		// Upper covert feather layers
 		for (let c = 0; c < 3; c++) {
-			const covGeo = new THREE.BoxGeometry(0.35 - c * 0.05, 0.004, 0.03);
-			covGeo.translate(sign * (0.15 + c * 0.04), 0, 0);
+			const covGeo = new THREE.BoxGeometry(0.25 - c * 0.04, 0.004, 0.025);
+			covGeo.translate(sign * (0.18 + c * 0.04), 0, 0);
 			const cov = new THREE.Mesh(covGeo, bodyMat);
-			cov.position.set(0, 0.006 + c * 0.003, -0.03 + c * 0.03);
+			cov.position.set(0, 0.006 + c * 0.002, -0.04 + c * 0.025);
 			pivot.add(cov);
 		}
 
+		// Elbow pivot (for folding)
+		const elbowPivot = new THREE.Group();
+		elbowPivot.position.set(sign * 0.44, 0, 0);
+
+		// Outer wing (primaries) - narrower, longer
+		const outerGeo = new THREE.BoxGeometry(0.42, 0.008, 0.11);
+		outerGeo.translate(sign * 0.21, 0, 0);
+		const outer = new THREE.Mesh(outerGeo, wingTopMat);
+		elbowPivot.add(outer);
+
+		// Outer underside
+		const outerUnderGeo = new THREE.BoxGeometry(0.40, 0.003, 0.09);
+		outerUnderGeo.translate(sign * 0.20, -0.005, 0);
+		const outerUnder = new THREE.Mesh(outerUnderGeo, wingUnderMat);
+		elbowPivot.add(outerUnder);
+
+		// Primary feather "fingers" - 5 separated tips
+		for (let f = 0; f < 5; f++) {
+			const fLen = 0.10 - f * 0.015;
+			const fGeo = new THREE.BoxGeometry(fLen, 0.004, 0.020);
+			fGeo.translate(sign * fLen / 2, 0, 0);
+			const feather = new THREE.Mesh(fGeo, featherTipMat);
+			feather.position.set(sign * 0.40, 0, -0.035 + f * 0.022);
+			feather.rotation.y = sign * (f - 2) * 0.05;
+			elbowPivot.add(feather);
+		}
+
+		pivot.add(elbowPivot);
 		return { pivot, elbowPivot };
 	}
 
@@ -153,53 +200,61 @@ export function createEagleModel() {
 	eagle.add(leftWing.pivot);
 	eagle.add(rightWing.pivot);
 
-	// === TAIL - fan of feathers ===
+	// === TAIL - fan of white feathers ===
 	const tailPivot = new THREE.Group();
-	tailPivot.position.set(0, 0.005, -0.18);
+	tailPivot.position.set(0, 0.008, -0.20);
 
-	for (let t = 0; t < 7; t++) {
-		const angle = (t - 3) * 0.08;
-		const tGeo = new THREE.BoxGeometry(0.035, 0.005, 0.15);
-		tGeo.translate(0, 0, -0.075);
+	// 9 tail feathers in a fan
+	for (let t = 0; t < 9; t++) {
+		const angle = (t - 4) * 0.065;
+		const tGeo = new THREE.BoxGeometry(0.028, 0.005, 0.14);
+		tGeo.translate(0, 0, -0.07);
 		const feather = new THREE.Mesh(tGeo, tailMat);
 		feather.rotation.y = angle;
-		feather.position.x = Math.sin(angle) * 0.02;
+		feather.position.x = Math.sin(angle) * 0.015;
 		tailPivot.add(feather);
 	}
 
-	// Dark tail coverts
-	const tCovGeo = new THREE.BoxGeometry(0.07, 0.02, 0.06);
-	const tCov = new THREE.Mesh(tCovGeo, bodyMat);
-	tCov.position.set(0, 0.005, 0.02);
-	tailPivot.add(tCov);
+	// Upper tail coverts (dark, cover base of tail)
+	const utcGeo = new THREE.BoxGeometry(0.08, 0.020, 0.07);
+	const utc = new THREE.Mesh(utcGeo, bodyMat);
+	utc.position.set(0, 0.005, 0.02);
+	tailPivot.add(utc);
+
+	// Under tail coverts (white)
+	const ltcGeo = new THREE.BoxGeometry(0.06, 0.012, 0.05);
+	const ltc = new THREE.Mesh(ltcGeo, tailMat);
+	ltc.position.set(0, -0.008, 0.01);
+	tailPivot.add(ltc);
+
 	eagle.add(tailPivot);
 
-	// === LEGS & TALONS (tucked during flight) ===
+	// === LEGS & TALONS ===
 	for (const side of [-1, 1]) {
-		// Thigh (feathered)
-		const thighGeo = new THREE.CylinderGeometry(0.012, 0.008, 0.04, 5);
+		// Feathered thigh
+		const thighGeo = new THREE.CylinderGeometry(0.014, 0.010, 0.045, 5);
 		const thigh = new THREE.Mesh(thighGeo, bodyMat);
-		thigh.position.set(side * 0.025, -0.045, -0.04);
-		thigh.rotation.x = 0.4;
+		thigh.position.set(side * 0.025, -0.045, -0.05);
+		thigh.rotation.x = 0.5;
 		eagle.add(thigh);
 
-		// Tarsus (yellow scaled leg)
-		const tarsGeo = new THREE.CylinderGeometry(0.005, 0.006, 0.04, 4);
+		// Tarsus (yellow scaled)
+		const tarsGeo = new THREE.CylinderGeometry(0.005, 0.006, 0.045, 5);
 		const tars = new THREE.Mesh(tarsGeo, talonMat);
-		tars.position.set(side * 0.025, -0.075, -0.05);
+		tars.position.set(side * 0.025, -0.078, -0.06);
 		eagle.add(tars);
 
-		// Toes with talons
-		for (let toe = 0; toe < 3; toe++) {
-			const tAngle = (toe - 1) * 0.5;
-			const toeGeo = new THREE.CylinderGeometry(0.003, 0.001, 0.025, 3);
-			const toeMesh = new THREE.Mesh(toeGeo, talonMat);
+		// Toes with curved talons
+		for (let toe = 0; toe < 4; toe++) {
+			const tAngle = (toe - 1.5) * 0.45;
+			const toeGeo = new THREE.CylinderGeometry(0.003, 0.001, 0.022, 3);
+			const toeMesh = new THREE.Mesh(toeGeo, toe < 3 ? talonMat : new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 }));
 			toeMesh.position.set(
-				side * 0.025 + Math.sin(tAngle) * 0.01,
-				-0.095,
-				-0.05 + Math.cos(tAngle) * 0.008
+				side * 0.025 + Math.sin(tAngle) * 0.012,
+				-0.098,
+				-0.06 + Math.cos(tAngle) * 0.010
 			);
-			toeMesh.rotation.x = 0.6;
+			toeMesh.rotation.x = 0.7;
 			toeMesh.rotation.z = tAngle * 0.3;
 			eagle.add(toeMesh);
 		}
@@ -216,8 +271,6 @@ export function createEagleModel() {
 		rightElbow: rightWing.elbowPivot,
 		tailPivot,
 		flapPhase: 0,
-		flapActive: false,
-		lastFlapStrength: 0,
 	};
 
 	return eagle;
@@ -225,7 +278,6 @@ export function createEagleModel() {
 
 /**
  * Animate the eagle based on flight state.
- * Called every frame from the game loop.
  */
 export function updateEagleAnimation(eagleGroup, dt, state) {
 	if (!eagleGroup || !eagleGroup.userData || !eagleGroup.userData.leftWing) return;
@@ -242,30 +294,27 @@ export function updateEagleAnimation(eagleGroup, dt, state) {
 	const isGliding = state.isGliding || false;
 	const isBoosting = state.isBoosting || false;
 	const isTurbo = state.isTurbo || false;
-	const speed = state.speed || 15;
 	const pitch = state.pitch || 0;
 
+	const lerp = (a, b, t) => a + (b - a) * Math.min(1, t);
+
 	if (isTurbo) {
-		// Swept back at high speed
-		lw.rotation.z += (-0.7 - lw.rotation.z) * dt * 8;
-		rw.rotation.z += (0.7 - rw.rotation.z) * dt * 8;
-		le.rotation.z += (-0.3 - le.rotation.z) * dt * 6;
-		re.rotation.z += (0.3 - re.rotation.z) * dt * 6;
-		if (tail) tail.rotation.x += (-0.1 - tail.rotation.x) * dt * 5;
+		lw.rotation.z = lerp(lw.rotation.z, -0.7, dt * 8);
+		rw.rotation.z = lerp(rw.rotation.z, 0.7, dt * 8);
+		le.rotation.z = lerp(le.rotation.z, -0.3, dt * 6);
+		re.rotation.z = lerp(re.rotation.z, 0.3, dt * 6);
+		if (tail) tail.rotation.x = lerp(tail.rotation.x, -0.1, dt * 5);
 	} else if (isBoosting) {
-		// Tucked dive
-		lw.rotation.z += (-0.6 - lw.rotation.z) * dt * 7;
-		rw.rotation.z += (0.6 - rw.rotation.z) * dt * 7;
-		le.rotation.z += (-0.4 - le.rotation.z) * dt * 5;
-		re.rotation.z += (0.4 - re.rotation.z) * dt * 5;
-		if (tail) tail.rotation.x += (0.15 - tail.rotation.x) * dt * 4;
+		lw.rotation.z = lerp(lw.rotation.z, -0.6, dt * 7);
+		rw.rotation.z = lerp(rw.rotation.z, 0.6, dt * 7);
+		le.rotation.z = lerp(le.rotation.z, -0.4, dt * 5);
+		re.rotation.z = lerp(re.rotation.z, 0.4, dt * 5);
+		if (tail) tail.rotation.x = lerp(tail.rotation.x, 0.15, dt * 4);
 	} else if (isFlapping && flapStrength > 0) {
-		// Active flapping - powerful downstroke/upstroke cycle
-		d.flapPhase += dt * 8; // Fast flap cycle
+		d.flapPhase += dt * 8;
 		const phase = d.flapPhase % (Math.PI * 2);
 
-		// Downstroke: wings sweep down powerfully
-		// Upstroke: wings fold slightly inward and lift
+		// Powerful downstroke / lighter upstroke
 		const mainAngle = Math.sin(phase) * 0.55 * flapStrength;
 		const elbowAngle = Math.sin(phase + 0.3) * 0.2 * flapStrength;
 
@@ -274,44 +323,28 @@ export function updateEagleAnimation(eagleGroup, dt, state) {
 		le.rotation.z = elbowAngle;
 		re.rotation.z = -elbowAngle;
 
-		// Wings sweep forward on downstroke for thrust
+		// Forward sweep on downstroke
 		lw.rotation.y = Math.cos(phase) * 0.08 * flapStrength;
 		rw.rotation.y = -Math.cos(phase) * 0.08 * flapStrength;
 
-		// Body bobs slightly with each flap
-		eagleGroup.position.y += Math.sin(phase * 2) * 0.002 * flapStrength;
-
-		// Tail adjusts for balance
 		if (tail) tail.rotation.x = Math.sin(phase + 1) * 0.05;
-
-		d.lastFlapStrength = flapStrength;
 	} else if (isGliding) {
-		// Soaring - wings spread wide with slight dihedral
-		const dihedral = 0.08 + Math.sin(performance.now() * 0.0005) * 0.02; // Gentle wobble
-		lw.rotation.z += (dihedral - lw.rotation.z) * dt * 3;
-		rw.rotation.z += (-dihedral - rw.rotation.z) * dt * 3;
+		const dihedral = 0.08 + Math.sin(performance.now() * 0.0005) * 0.02;
+		lw.rotation.z = lerp(lw.rotation.z, dihedral, dt * 3);
+		rw.rotation.z = lerp(rw.rotation.z, -dihedral, dt * 3);
+		le.rotation.z = lerp(le.rotation.z, 0.02, dt * 3);
+		re.rotation.z = lerp(re.rotation.z, -0.02, dt * 3);
+		lw.rotation.y = lerp(lw.rotation.y, 0, dt * 2);
+		rw.rotation.y = lerp(rw.rotation.y, 0, dt * 2);
 
-		// Elbows slightly extended
-		le.rotation.z += (0.02 - le.rotation.z) * dt * 3;
-		re.rotation.z += (-0.02 - re.rotation.z) * dt * 3;
-
-		// Neutral wing sweep
-		lw.rotation.y += (0 - lw.rotation.y) * dt * 2;
-		rw.rotation.y += (0 - rw.rotation.y) * dt * 2;
-
-		// Tail acts as rudder/elevator
-		if (tail) {
-			tail.rotation.x += (pitch * 0.003 - tail.rotation.x) * dt * 3;
-		}
-
-		d.flapPhase = 0; // Reset for next flap
+		if (tail) tail.rotation.x = lerp(tail.rotation.x, pitch * 0.003, dt * 3);
+		d.flapPhase = 0;
 	} else {
-		// Transitioning / idle - wings settling to glide position
-		lw.rotation.z += (0.05 - lw.rotation.z) * dt * 4;
-		rw.rotation.z += (-0.05 - rw.rotation.z) * dt * 4;
-		le.rotation.z += (0 - le.rotation.z) * dt * 4;
-		re.rotation.z += (0 - re.rotation.z) * dt * 4;
-		lw.rotation.y += (0 - lw.rotation.y) * dt * 3;
-		rw.rotation.y += (0 - rw.rotation.y) * dt * 3;
+		lw.rotation.z = lerp(lw.rotation.z, 0.05, dt * 4);
+		rw.rotation.z = lerp(rw.rotation.z, -0.05, dt * 4);
+		le.rotation.z = lerp(le.rotation.z, 0, dt * 4);
+		re.rotation.z = lerp(re.rotation.z, 0, dt * 4);
+		lw.rotation.y = lerp(lw.rotation.y, 0, dt * 3);
+		rw.rotation.y = lerp(rw.rotation.y, 0, dt * 3);
 	}
 }
