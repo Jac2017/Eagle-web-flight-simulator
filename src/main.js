@@ -457,6 +457,8 @@ function update(dt) {
 
 	// Eagle-specific flight state
 	state.isGliding = physicsResult.isGliding;
+	state.isFlapping = physicsResult.isFlapping;
+	state.flapStrength = physicsResult.flapStrength;
 	state.wingSpread = physicsResult.wingSpread;
 	state.inThermal = physicsResult.inThermal;
 	state.thermalStrength = physicsResult.thermalStrength;
@@ -837,13 +839,7 @@ function animate() {
 
 		// Animate eagle wings
 		if (eagleGroup) {
-			updateEagleAnimation(
-				eagleGroup, dt,
-				state.throttle || 0,
-				state.isGliding || false,
-				state.isBoosting || false,
-				state.isTurbo || false
-			);
+			updateEagleAnimation(eagleGroup, dt, state);
 		}
 
 		try { if (currentState === States.FLYING) particles.update(dt); } catch (e) { }

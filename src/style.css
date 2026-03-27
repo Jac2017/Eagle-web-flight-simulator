@@ -1954,6 +1954,11 @@ input[type="range"]::-webkit-slider-thumb {
 	border-left-color: #7ecbf5;
 }
 
+#flight-mode-indicator.flapping {
+	color: #4ade80;
+	border-left-color: #4ade80;
+}
+
 #flight-mode-indicator.diving {
 	color: #ff6b6b;
 	border-left-color: #ff6b6b;

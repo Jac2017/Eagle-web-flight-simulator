@@ -299,15 +299,15 @@ export class HUD {
 			} else if (state.isBoosting) {
 				mode = 'DIVING';
 				modeClass = 'diving';
+			} else if (state.isFlapping) {
+				mode = 'FLAPPING';
+				modeClass = 'flapping';
 			} else if (state.isGliding) {
 				mode = 'GLIDING';
 				modeClass = 'gliding';
 			} else if (state.inThermal) {
 				mode = 'RIDING THERMAL';
 				modeClass = 'thermal';
-			} else if (state.throttle > 0.6) {
-				mode = 'FLAPPING';
-				modeClass = '';
 			}
 
 			this.flightModeElem.textContent = mode;
