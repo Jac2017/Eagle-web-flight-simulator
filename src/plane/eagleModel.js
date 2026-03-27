@@ -1,60 +1,94 @@
 import * as THREE from 'three';
 
 /**
- * Procedural Bald Eagle with curved wings.
- * Uses only simple primitives with vertex offsets for curvature.
- * Every mesh gets its material at creation time (no deferred assignment).
+ * Procedural Bald Eagle - organic curved wings, no gaps.
+ *
+ * Wings are built as continuous surfaces from shoulder to wingtip.
+ * Each wing is a single mesh with visible camber (curved top, flat bottom).
+ * No separate inner/outer segments with gaps between them.
  */
 
 /**
- * Create a single curved wing panel.
- * Takes a BoxGeometry and bends the upper vertices upward for camber.
+ * Build a single continuous wing mesh from root to tip.
+ * Uses a PlaneGeometry laid on XZ, then deforms Y for airfoil camber,
+ * tapers Z for chord reduction, and sweeps Z for leading edge sweep.
  */
-function curvedPanel(w, h, d, mat) {
-	const geo = new THREE.BoxGeometry(w, h, d, 4, 1, 4);
+function buildContinuousWing(span, rootChord, tipChord, isLeft, mat) {
+	const sign = isLeft ? 1 : -1;
+	const segsSpan = 10; // Spanwise resolution
+	const segsChord = 6; // Chordwise resolution
+
+	// PlaneGeometry on XZ plane: X = spanwise, Z = chordwise
+	const geo = new THREE.PlaneGeometry(span, rootChord, segsSpan, segsChord);
+	// Rotate so it lies flat (PlaneGeometry defaults to XY)
+	geo.rotateX(-Math.PI / 2);
+
 	const pos = geo.attributes.position;
 	for (let i = 0; i < pos.count; i++) {
-		const y = pos.getY(i);
-		const x = pos.getX(i);
-		const z = pos.getZ(i);
-		// Normalize chord position
-		const cNorm = (z / d) + 0.5; // 0 = back edge, 1 = front edge
-		const sNorm = (x / w) + 0.5; // 0 = root, 1 = tip
-		if (y > 0) {
-			// Upper surface: parabolic arch
-			const arch = d * 0.15 * cNorm * (1 - cNorm) * (1 - sNorm * 0.4);
-			pos.setY(i, arch + 0.001);
-		} else {
-			// Lower surface: mostly flat, very slight concavity
-			pos.setY(i, -0.001);
-		}
+		let x = pos.getX(i); // spanwise: -span/2 to +span/2
+		let y = pos.getY(i); // 0 (after rotation)
+		let z = pos.getZ(i); // chordwise: -rootChord/2 to +rootChord/2
+
+		// Normalize spanwise (0 = root, 1 = tip)
+		const sNorm = (x / span) + 0.5;
+		// Normalize chordwise (0 = trailing edge, 1 = leading edge)
+		const cNorm = (z / rootChord) + 0.5;
+
+		// Taper: chord shrinks from root to tip
+		const localChord = rootChord + (tipChord - rootChord) * sNorm;
+		z = (cNorm - 0.5) * localChord;
+
+		// Sweep: leading edge moves backward toward tip
+		z -= sNorm * sNorm * rootChord * 0.2;
+
+		// CAMBER: upper surface curves up, creating visible arch
+		const camberAmount = localChord * 0.35; // 35% of chord = very visible
+		const camber = camberAmount * 4 * cNorm * (1 - cNorm); // Parabolic
+		// Thickness: thicker near 30% chord
+		const thickProfile = 0.008 * (1 - sNorm * 0.6); // Thinner at tip
+		y = camber + thickProfile;
+
+		// Slight dihedral built into rest shape (tips slightly higher)
+		y += sNorm * sNorm * 0.015;
+
+		// Washout: tip twisted to lower angle of incidence
+		const twist = sNorm * 0.04;
+		const zRot = z * Math.cos(twist) - y * Math.sin(twist);
+		const yRot = z * Math.sin(twist) + y * Math.cos(twist);
+
+		// Flip X for correct side
+		pos.setXYZ(i, sign * sNorm * span, yRot, zRot);
 	}
+
 	pos.needsUpdate = true;
 	geo.computeVertexNormals();
-	return new THREE.Mesh(geo, mat);
+
+	const mesh = new THREE.Mesh(geo, mat);
+	return mesh;
 }
 
 export function createEagleModel() {
 	const eagle = new THREE.Group();
 
 	// === MATERIALS ===
-	const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1E0F04, flatShading: true });
-	const wingMat = new THREE.MeshLambertMaterial({ color: 0x150800, flatShading: true, side: THREE.DoubleSide });
-	const underMat = new THREE.MeshLambertMaterial({ color: 0x3B2515, flatShading: true });
-	const headMat = new THREE.MeshLambertMaterial({ color: 0xF8F4EC, flatShading: true });
-	const beakMat = new THREE.MeshLambertMaterial({ color: 0xE8A000, flatShading: true });
+	const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1E0F04 });
+	const wingMat = new THREE.MeshLambertMaterial({ color: 0x150800, side: THREE.DoubleSide });
+	const underMat = new THREE.MeshLambertMaterial({ color: 0x3B2515 });
+	const headMat = new THREE.MeshLambertMaterial({ color: 0xF8F4EC });
+	const beakMat = new THREE.MeshLambertMaterial({ color: 0xE8A000 });
 	const eyeMat = new THREE.MeshLambertMaterial({ color: 0xCCA000 });
 	const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-	const tailMat = new THREE.MeshLambertMaterial({ color: 0xF0EDE0, flatShading: true, side: THREE.DoubleSide });
-	const talonMat = new THREE.MeshLambertMaterial({ color: 0xE8A000, flatShading: true });
-	const tipMat = new THREE.MeshLambertMaterial({ color: 0x0A0400, flatShading: true, side: THREE.DoubleSide });
-	const neckMat = new THREE.MeshLambertMaterial({ color: 0xE8E0D0, flatShading: true });
+	const tailMat = new THREE.MeshLambertMaterial({ color: 0xF0EDE0, side: THREE.DoubleSide });
+	const talonMat = new THREE.MeshLambertMaterial({ color: 0xE8A000 });
+	const tipMat = new THREE.MeshLambertMaterial({ color: 0x0A0400, side: THREE.DoubleSide });
+	const neckMat = new THREE.MeshLambertMaterial({ color: 0xE8E0D0 });
 
 	// === BODY ===
 	const bodyGeo = new THREE.SphereGeometry(1, 10, 8);
 	bodyGeo.scale(0.085, 0.06, 0.22);
 	eagle.add(new THREE.Mesh(bodyGeo, bodyMat));
 
+	// Keel/breast
 	const keelGeo = new THREE.SphereGeometry(1, 8, 6);
 	keelGeo.scale(0.07, 0.055, 0.15);
 	const keel = new THREE.Mesh(keelGeo, underMat);
@@ -74,6 +108,7 @@ export function createEagleModel() {
 	head.position.set(0, 0.045, 0.21);
 	eagle.add(head);
 
+	// Brow
 	const browGeo = new THREE.BoxGeometry(0.055, 0.010, 0.022);
 	const brow = new THREE.Mesh(browGeo, neckMat);
 	brow.position.set(0, 0.062, 0.225);
@@ -101,53 +136,55 @@ export function createEagleModel() {
 
 	// Eyes
 	for (const side of [-1, 1]) {
-		const s1 = new THREE.Mesh(new THREE.SphereGeometry(0.013, 6, 5), new THREE.MeshLambertMaterial({ color: 0x2A2010 }));
-		s1.position.set(side * 0.029, 0.052, 0.226);
-		eagle.add(s1);
-		const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.010, 6, 5), eyeMat);
-		s2.position.set(side * 0.030, 0.053, 0.228);
-		eagle.add(s2);
-		const s3 = new THREE.Mesh(new THREE.SphereGeometry(0.005, 5, 4), pupilMat);
-		s3.position.set(side * 0.033, 0.053, 0.233);
-		eagle.add(s3);
+		eagle.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(0.013, 6, 5), new THREE.MeshLambertMaterial({ color: 0x2A2010 })), { position: new THREE.Vector3(side * 0.029, 0.052, 0.226) }));
+		eagle.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(0.010, 6, 5), eyeMat), { position: new THREE.Vector3(side * 0.030, 0.053, 0.228) }));
+		eagle.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(0.005, 5, 4), pupilMat), { position: new THREE.Vector3(side * 0.033, 0.053, 0.233) }));
 	}
 
-	// === WINGS ===
+	// === WINGS - continuous curved surface, no gaps ===
 	function buildWing(isLeft) {
 		const sign = isLeft ? 1 : -1;
+
+		// Shoulder pivot
 		const shoulderPivot = new THREE.Group();
-		shoulderPivot.position.set(sign * 0.065, 0.015, 0.01);
+		shoulderPivot.position.set(0, 0.015, 0.01);
 
-		// Inner wing - curved panel
-		const inner = curvedPanel(0.38, 0.01, 0.17, wingMat);
-		inner.position.set(sign * 0.19, 0, 0);
-		shoulderPivot.add(inner);
+		// SINGLE continuous wing surface from body to near-tip
+		const mainWing = buildContinuousWing(0.85, 0.18, 0.06, isLeft, wingMat);
+		shoulderPivot.add(mainWing);
 
-		// Coverts
-		for (let c = 0; c < 3; c++) {
-			const cGeo = new THREE.BoxGeometry(0.22 - c * 0.03, 0.003, 0.020);
-			const cov = new THREE.Mesh(cGeo, bodyMat);
-			cov.position.set(sign * (0.16 + c * 0.04), 0.010 + c * 0.002, -0.03 + c * 0.022);
+		// Covert feather layers (on top of wing surface)
+		for (let c = 0; c < 4; c++) {
+			const covW = 0.50 - c * 0.08;
+			const covGeo = new THREE.BoxGeometry(covW, 0.003, 0.018);
+			covGeo.translate(sign * (0.15 + c * 0.06), 0, 0);
+			const cov = new THREE.Mesh(covGeo, bodyMat);
+			cov.position.set(0, 0.012 + c * 0.002, -0.02 + c * 0.015);
 			shoulderPivot.add(cov);
 		}
 
-		// Elbow pivot
+		// Elbow pivot (for fold animation - positioned partway along wing)
 		const elbowPivot = new THREE.Group();
-		elbowPivot.position.set(sign * 0.42, 0, -0.01);
+		elbowPivot.position.set(sign * 0.50, 0.01, -0.02);
 
-		// Outer wing - curved, narrower
-		const outer = curvedPanel(0.45, 0.008, 0.11, wingMat);
-		outer.position.set(sign * 0.225, 0, 0);
-		elbowPivot.add(outer);
-
-		// Primary feathers
+		// Primary feathers extending beyond main wing
 		const primaries = [];
 		for (let f = 0; f < 5; f++) {
-			const fLen = 0.10 - f * 0.012;
-			const fGeo = new THREE.BoxGeometry(fLen, 0.003, 0.018 - f * 0.002);
+			const fLen = 0.14 - f * 0.015;
+			const fW = 0.020 - f * 0.002;
+			const fGeo = new THREE.BoxGeometry(fLen, 0.003, fW);
+			// Curve each feather slightly upward at tip
+			const fPos = fGeo.attributes.position;
+			for (let v = 0; v < fPos.count; v++) {
+				const fx = fPos.getX(v);
+				fPos.setY(v, fPos.getY(v) + Math.abs(fx) * fx * 0.15);
+			}
+			fPos.needsUpdate = true;
+			fGeo.computeVertexNormals();
 			fGeo.translate(sign * fLen / 2, 0, 0);
+
 			const feather = new THREE.Mesh(fGeo, tipMat);
-			feather.position.set(sign * 0.43, 0, -0.020 + f * 0.016);
+			feather.position.set(sign * 0.33, -0.005, -0.015 + f * 0.014);
 			feather.rotation.y = sign * (f - 2) * 0.04;
 			elbowPivot.add(feather);
 			primaries.push(feather);
@@ -191,10 +228,10 @@ export function createEagleModel() {
 		eagle.add(tars);
 		for (let toe = 0; toe < 4; toe++) {
 			const a = (toe - 1.5) * 0.45;
-			const t = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.001, 0.022, 3), talonMat);
-			t.position.set(side * 0.025 + Math.sin(a) * 0.012, -0.098, -0.06 + Math.cos(a) * 0.01);
-			t.rotation.set(0.7, 0, a * 0.3);
-			eagle.add(t);
+			const tm = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.001, 0.022, 3), talonMat);
+			tm.position.set(side * 0.025 + Math.sin(a) * 0.012, -0.098, -0.06 + Math.cos(a) * 0.01);
+			tm.rotation.set(0.7, 0, a * 0.3);
+			eagle.add(tm);
 		}
 	}
 
@@ -218,7 +255,7 @@ export function createEagleModel() {
 }
 
 /**
- * Animate eagle wings responding to pitch, roll, yaw, speed.
+ * Animate wings responding to pitch, roll, yaw, speed.
  */
 export function updateEagleAnimation(eagleGroup, dt, state) {
 	if (!eagleGroup || !eagleGroup.userData || !eagleGroup.userData.leftShoulder) return;
@@ -239,37 +276,35 @@ export function updateEagleAnimation(eagleGroup, dt, state) {
 	const pitch = state.pitch || 0;
 	const yaw = state.yaw || 0;
 
-	const lrp = (a, b, t) => a + (b - a) * Math.min(1, t);
+	const mix = (a, b, t) => a + (b - a) * Math.min(1, t);
 
-	d.smoothRoll = lrp(d.smoothRoll, roll, dt * 4);
-	d.smoothPitch = lrp(d.smoothPitch, pitch, dt * 3);
-	d.smoothYaw = lrp(d.smoothYaw, yaw || 0, dt * 4);
+	d.smoothRoll = mix(d.smoothRoll, roll, dt * 4);
+	d.smoothPitch = mix(d.smoothPitch, pitch, dt * 3);
+	d.smoothYaw = mix(d.smoothYaw, yaw || 0, dt * 4);
 
-	const rf = d.smoothRoll / 45; // roll factor
-	const lra = rf * 0.12; // left roll adjust
-	const rra = -rf * 0.12;
-	const pf = d.smoothPitch / 30; // pitch factor
-	const ps = pf * 0.06; // pitch sweep
+	const rf = d.smoothRoll / 45;
+	const lra = rf * 0.12, rra = -rf * 0.12;
+	const pf = d.smoothPitch / 30;
+	const ps = pf * 0.06;
 	const yf = d.smoothYaw;
-	const lya = yf * 0.05;
-	const rya = -yf * 0.05;
-	const sn = Math.min(1, speed / 50); // speed normalized
+	const lya = yf * 0.05, rya = -yf * 0.05;
+	const sn = Math.min(1, speed / 50);
 	const priSplay = (1 - sn) * 0.06;
 
 	if (isTurbo) {
-		ls.rotation.z = lrp(ls.rotation.z, -0.7 + lra, dt * 8);
-		rs.rotation.z = lrp(rs.rotation.z, 0.7 + rra, dt * 8);
-		le.rotation.z = lrp(le.rotation.z, -0.4, dt * 6);
-		re.rotation.z = lrp(re.rotation.z, 0.4, dt * 6);
-		ls.rotation.y = lrp(ls.rotation.y, -0.15, dt * 5);
-		rs.rotation.y = lrp(rs.rotation.y, 0.15, dt * 5);
-		if (tail) tail.rotation.x = lrp(tail.rotation.x, -0.1 + pf * 0.05, dt * 5);
+		ls.rotation.z = mix(ls.rotation.z, -0.7 + lra, dt * 8);
+		rs.rotation.z = mix(rs.rotation.z, 0.7 + rra, dt * 8);
+		le.rotation.z = mix(le.rotation.z, -0.4, dt * 6);
+		re.rotation.z = mix(re.rotation.z, 0.4, dt * 6);
+		ls.rotation.y = mix(ls.rotation.y, -0.15, dt * 5);
+		rs.rotation.y = mix(rs.rotation.y, 0.15, dt * 5);
+		if (tail) tail.rotation.x = mix(tail.rotation.x, -0.1 + pf * 0.05, dt * 5);
 	} else if (isBoosting) {
-		ls.rotation.z = lrp(ls.rotation.z, -0.6 + lra, dt * 7);
-		rs.rotation.z = lrp(rs.rotation.z, 0.6 + rra, dt * 7);
-		le.rotation.z = lrp(le.rotation.z, -0.35, dt * 5);
-		re.rotation.z = lrp(re.rotation.z, 0.35, dt * 5);
-		if (tail) tail.rotation.x = lrp(tail.rotation.x, 0.15 + pf * 0.05, dt * 4);
+		ls.rotation.z = mix(ls.rotation.z, -0.6 + lra, dt * 7);
+		rs.rotation.z = mix(rs.rotation.z, 0.6 + rra, dt * 7);
+		le.rotation.z = mix(le.rotation.z, -0.35, dt * 5);
+		re.rotation.z = mix(re.rotation.z, 0.35, dt * 5);
+		if (tail) tail.rotation.x = mix(tail.rotation.x, 0.15 + pf * 0.05, dt * 4);
 	} else if (isFlapping && flapStrength > 0) {
 		d.flapPhase += dt * 8;
 		const ph = d.flapPhase % (Math.PI * 2);
@@ -293,37 +328,35 @@ export function updateEagleAnimation(eagleGroup, dt, state) {
 		const wob = Math.sin(t * 0.5) * 0.015;
 		const dih = 0.08 + wob;
 
-		ls.rotation.z = lrp(ls.rotation.z, dih + lra + lya, dt * 3);
-		rs.rotation.z = lrp(rs.rotation.z, -dih + rra + rya, dt * 3);
-		le.rotation.z = lrp(le.rotation.z, 0.02 + Math.abs(rf) * 0.05, dt * 3);
-		re.rotation.z = lrp(re.rotation.z, -0.02 - Math.abs(rf) * 0.05, dt * 3);
-		ls.rotation.y = lrp(ls.rotation.y, ps, dt * 2.5);
-		rs.rotation.y = lrp(rs.rotation.y, -ps, dt * 2.5);
+		ls.rotation.z = mix(ls.rotation.z, dih + lra + lya, dt * 3);
+		rs.rotation.z = mix(rs.rotation.z, -dih + rra + rya, dt * 3);
+		le.rotation.z = mix(le.rotation.z, 0.02 + Math.abs(rf) * 0.05, dt * 3);
+		re.rotation.z = mix(re.rotation.z, -0.02 - Math.abs(rf) * 0.05, dt * 3);
+		ls.rotation.y = mix(ls.rotation.y, ps, dt * 2.5);
+		rs.rotation.y = mix(rs.rotation.y, -ps, dt * 2.5);
 
 		if (tail) {
-			tail.rotation.x = lrp(tail.rotation.x, pf * 0.06, dt * 3);
-			tail.rotation.y = lrp(tail.rotation.y, yf * 0.1, dt * 3);
+			tail.rotation.x = mix(tail.rotation.x, pf * 0.06, dt * 3);
+			tail.rotation.y = mix(tail.rotation.y, yf * 0.1, dt * 3);
 		}
 		d.flapPhase = 0;
 	} else {
-		ls.rotation.z = lrp(ls.rotation.z, 0.05 + lra, dt * 4);
-		rs.rotation.z = lrp(rs.rotation.z, -0.05 + rra, dt * 4);
-		le.rotation.z = lrp(le.rotation.z, 0, dt * 4);
-		re.rotation.z = lrp(re.rotation.z, 0, dt * 4);
-		ls.rotation.y = lrp(ls.rotation.y, ps, dt * 3);
-		rs.rotation.y = lrp(rs.rotation.y, -ps, dt * 3);
+		ls.rotation.z = mix(ls.rotation.z, 0.05 + lra, dt * 4);
+		rs.rotation.z = mix(rs.rotation.z, -0.05 + rra, dt * 4);
+		le.rotation.z = mix(le.rotation.z, 0, dt * 4);
+		re.rotation.z = mix(re.rotation.z, 0, dt * 4);
+		ls.rotation.y = mix(ls.rotation.y, ps, dt * 3);
+		rs.rotation.y = mix(rs.rotation.y, -ps, dt * 3);
 	}
 
-	// Primary splay
 	if (lp && rp) {
 		for (let f = 0; f < Math.min(lp.length, 5); f++) {
 			const sp = priSplay * (f - 2);
-			if (lp[f]) lp[f].rotation.y = lrp(lp[f].rotation.y, sp, dt * 3);
-			if (rp[f]) rp[f].rotation.y = lrp(rp[f].rotation.y, -sp, dt * 3);
+			if (lp[f]) lp[f].rotation.y = mix(lp[f].rotation.y, sp, dt * 3);
+			if (rp[f]) rp[f].rotation.y = mix(rp[f].rotation.y, -sp, dt * 3);
 		}
 	}
 
-	// Wingtip flex
 	if (!isTurbo && !isBoosting && le && re) {
 		const t = performance.now() * 0.001;
 		le.rotation.x = Math.sin(t * 3 + 1) * 0.008 * (1 + speed / 50);
