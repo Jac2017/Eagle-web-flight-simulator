@@ -125,6 +125,24 @@ const FLIGHT_CORRIDORS = [
 	{ name: 'SoCal Helicopters', startLon: -118.3, startLat: 34.0, endLon: -117.8, endLat: 34.1, altitude: 500, count: 3, speed: 60 },
 ];
 
+// ===================== SKI SLOPES (Big Bear) =====================
+const SKI_SLOPES = [
+	// Bear Mountain slopes
+	{ name: 'Bear Mountain Main', topLon: -116.8580, topLat: 34.2260, topAlt: 2680,
+	  botLon: -116.8610, botLat: 34.2290, botAlt: 2440, count: 15 },
+	{ name: 'Bear Mountain East', topLon: -116.8555, topLat: 34.2255, topAlt: 2650,
+	  botLon: -116.8575, botLat: 34.2285, botAlt: 2450, count: 10 },
+	// Snow Summit slopes
+	{ name: 'Snow Summit Main', topLon: -116.8650, topLat: 34.2275, topAlt: 2600,
+	  botLon: -116.8680, botLat: 34.2310, botAlt: 2400, count: 12 },
+	{ name: 'Snow Summit West', topLon: -116.8670, topLat: 34.2270, topAlt: 2580,
+	  botLon: -116.8695, botLat: 34.2300, botAlt: 2410, count: 8 },
+];
+
+const MAX_SKIERS = 60;
+const MAX_SAILS = 30; // Visible sail triangles above sailboats
+const MAX_CONTRAILS = 40; // Contrail segments behind jets
+
 // Deterministic random
 function seededRandom(x, y) {
 	let seed = (x * 73856093) ^ (y * 19349663);
@@ -150,9 +168,16 @@ export class TrafficSystem {
 		// Aircraft instanced mesh
 		this.aircraftInstances = null;
 
-		this.vehicles = [];   // Active vehicle objects
-		this.boats = [];      // Active boat objects
-		this.aircraft = [];   // Active aircraft objects
+		this.vehicles = [];
+		this.boats = [];
+		this.aircraft = [];
+		this.skiers = [];
+		this.contrailSegments = [];
+
+		// Additional instance meshes
+		this.skierInstances = null;
+		this.sailInstances = null;
+		this.contrailInstances = null;
 
 		this.lastUpdateTime = 0;
 		this.time = 0;
@@ -192,12 +217,40 @@ export class TrafficSystem {
 		this.aircraftInstances.layers.set(0);
 		this.scene.add(this.aircraftInstances);
 
-		// Spawn highway vehicles
+		// Skier instances (small colored dots on slopes)
+		const skierGeo = new THREE.BoxGeometry(1, 1, 1);
+		skierGeo.translate(0, 0.5, 0);
+		const skierMat = new THREE.MeshLambertMaterial({ color: 0xFF0000 });
+		this.skierInstances = new THREE.InstancedMesh(skierGeo, skierMat, MAX_SKIERS);
+		this.skierInstances.count = 0;
+		this.skierInstances.frustumCulled = false;
+		this.skierInstances.layers.set(0);
+		this.scene.add(this.skierInstances);
+
+		// Sail instances (white triangular sails above sailboats)
+		const sailGeo = new THREE.ConeGeometry(0.5, 1, 3);
+		sailGeo.translate(0, 0.5, 0);
+		const sailMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF, side: THREE.DoubleSide });
+		this.sailInstances = new THREE.InstancedMesh(sailGeo, sailMat, MAX_SAILS);
+		this.sailInstances.count = 0;
+		this.sailInstances.frustumCulled = false;
+		this.sailInstances.layers.set(0);
+		this.scene.add(this.sailInstances);
+
+		// Contrail instances (white elongated boxes behind jets)
+		const contrailGeo = new THREE.BoxGeometry(1, 1, 1);
+		contrailGeo.translate(0, 0.5, 0);
+		const contrailMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.5 });
+		this.contrailInstances = new THREE.InstancedMesh(contrailGeo, contrailMat, MAX_CONTRAILS);
+		this.contrailInstances.count = 0;
+		this.contrailInstances.frustumCulled = false;
+		this.contrailInstances.layers.set(0);
+		this.scene.add(this.contrailInstances);
+
 		this.spawnVehicles();
-		// Spawn boats
 		this.spawnBoats();
-		// Spawn aircraft
 		this.spawnAircraft();
+		this.spawnSkiers();
 
 		this.initialized = true;
 	}
@@ -295,6 +348,9 @@ export class TrafficSystem {
 				const isHelicopter = corridor.altitude < 1000;
 				const isJet = corridor.speed > 250;
 
+				// High altitude jets produce contrails
+				const hasContrail = corridor.altitude > 7000 && !isHelicopter;
+
 				this.aircraft.push({
 					lon, lat,
 					altitude: corridor.altitude + (seededRandom(i * 13, this.aircraft.length * 17) - 0.5) * 500,
@@ -303,15 +359,46 @@ export class TrafficSystem {
 						corridor.endLon - corridor.startLon,
 						corridor.endLat - corridor.startLat
 					),
-					corridor,
-					t,
-					direction: 1,
-					isHelicopter,
-					isJet,
+					corridor, t, direction: 1,
+					isHelicopter, isJet, hasContrail,
 					width: isHelicopter ? 8 : (isJet ? 12 : 35),
 					height: isHelicopter ? 4 : (isJet ? 5 : 12),
 					length: isHelicopter ? 12 : (isJet ? 15 : 60),
 					color: isHelicopter ? 0x444444 : (isJet ? 0x888888 : 0xFAFAFA),
+					// Track last positions for contrail
+					prevPositions: [],
+				});
+			}
+		}
+	}
+
+	spawnSkiers() {
+		for (const slope of SKI_SLOPES) {
+			for (let i = 0; i < slope.count; i++) {
+				if (this.skiers.length >= MAX_SKIERS) break;
+
+				const t = seededRandom(i * 7, this.skiers.length * 13);
+				const lon = slope.topLon + (slope.botLon - slope.topLon) * t;
+				const lat = slope.topLat + (slope.botLat - slope.topLat) * t;
+				const alt = slope.topAlt + (slope.botAlt - slope.topAlt) * t;
+				// Slight lateral spread across the run
+				const mPerDegLon = 111320 * Math.cos(lat * Math.PI / 180);
+				const spread = (seededRandom(i * 17, this.skiers.length * 23) - 0.5) * 40;
+				const heading = Math.atan2(slope.botLon - slope.topLon, slope.botLat - slope.topLat);
+
+				// Random gear color
+				const jacketColors = [0xFF0000, 0x0044FF, 0x00AA00, 0xFF6600, 0xFFFF00, 0xFF00FF, 0x000000, 0xFFFFFF];
+				const color = jacketColors[Math.floor(seededRandom(i * 31, this.skiers.length * 37) * jacketColors.length)];
+
+				const isSnowboarder = seededRandom(i * 41, this.skiers.length * 43) > 0.6;
+
+				this.skiers.push({
+					lon: lon + Math.cos(heading + Math.PI/2) * spread / mPerDegLon,
+					lat: lat + Math.sin(heading + Math.PI/2) * spread / 111320,
+					alt,
+					speed: isSnowboarder ? (4 + seededRandom(i * 47, this.skiers.length * 53) * 8) : (5 + seededRandom(i * 47, this.skiers.length * 53) * 10),
+					slope, t, heading, color, isSnowboarder,
+					direction: 1, // 1 = going down, -1 = going up (chairlift)
 				});
 			}
 		}
@@ -488,10 +575,114 @@ export class TrafficSystem {
 			this.aircraftInstances.instanceMatrix.needsUpdate = true;
 			if (this.aircraftInstances.instanceColor) this.aircraftInstances.instanceColor.needsUpdate = true;
 		}
+
+		// ========== SAILS ON SAILBOATS ==========
+		let sIdx = 0;
+		for (const boat of this.boats) {
+			if (!boat.isSailboat || sIdx >= MAX_SAILS) continue;
+			const dx = (boat.lon - eagleLon) * mPerDegLon;
+			const dz = (boat.lat - eagleLat) * mPerDegLat;
+			const dist = Math.sqrt(dx * dx + dz * dz);
+			if (dist > boatRenderDist) continue;
+
+			const dy = boat.elevation - eagleAltM;
+			const bob = Math.sin(this.time * 1.5 + sIdx * 2.3) * 0.3;
+
+			// Sail rises above the boat hull
+			position.set(dx, dy + bob + boat.height * 0.8, -dz);
+			euler.set(0, boat.heading + 0.3, Math.sin(this.time + sIdx) * 0.1);
+			quat.setFromEuler(euler);
+			scale.set(boat.width * 0.6, boat.height * 1.5, boat.width * 0.4);
+			matrix.compose(position, quat, scale);
+			this.sailInstances.setMatrixAt(sIdx, matrix);
+			color.setHex(0xFFFFFF);
+			this.sailInstances.setColorAt(sIdx, color);
+			sIdx++;
+		}
+		this.sailInstances.count = sIdx;
+		if (sIdx > 0) {
+			this.sailInstances.instanceMatrix.needsUpdate = true;
+			if (this.sailInstances.instanceColor) this.sailInstances.instanceColor.needsUpdate = true;
+		}
+
+		// ========== SKIERS ON SLOPES ==========
+		const skierRenderDist = Math.max(2000, eagleAltM * 3);
+		let kIdx = 0;
+		for (const skier of this.skiers) {
+			// Animate: ski down then ride lift back up
+			const sl = skier.slope;
+			const segLen = Math.sqrt(
+				((sl.botLon - sl.topLon) * mPerDegLon) ** 2 +
+				((sl.botLat - sl.topLat) * mPerDegLat) ** 2
+			);
+			skier.t += skier.direction * skier.speed * dt / segLen;
+
+			if (skier.t > 1.0) { skier.t = 1.0; skier.direction = -1; skier.speed *= 0.3; } // Slow lift ride up
+			if (skier.t < 0) { skier.t = 0; skier.direction = 1; skier.speed = skier.isSnowboarder ? (4 + Math.random() * 8) : (5 + Math.random() * 10); }
+
+			skier.lon = sl.topLon + (sl.botLon - sl.topLon) * skier.t;
+			skier.lat = sl.topLat + (sl.botLat - sl.topLat) * skier.t;
+			skier.alt = sl.topAlt + (sl.botAlt - sl.topAlt) * skier.t;
+
+			const dx = (skier.lon - eagleLon) * mPerDegLon;
+			const dz = (skier.lat - eagleLat) * mPerDegLat;
+			const dist = Math.sqrt(dx * dx + dz * dz);
+			if (dist > skierRenderDist || kIdx >= MAX_SKIERS) continue;
+
+			const dy = skier.alt - eagleAltM;
+			position.set(dx, dy, -dz);
+			euler.set(0, skier.heading, 0);
+			quat.setFromEuler(euler);
+			// Skiers: tiny upright figures
+			scale.set(0.5, 1.8, 0.5);
+			matrix.compose(position, quat, scale);
+			this.skierInstances.setMatrixAt(kIdx, matrix);
+			color.setHex(skier.color);
+			this.skierInstances.setColorAt(kIdx, color);
+			kIdx++;
+		}
+		this.skierInstances.count = kIdx;
+		if (kIdx > 0) {
+			this.skierInstances.instanceMatrix.needsUpdate = true;
+			if (this.skierInstances.instanceColor) this.skierInstances.instanceColor.needsUpdate = true;
+		}
+
+		// ========== CONTRAILS BEHIND HIGH-ALT JETS ==========
+		let cIdx = 0;
+		for (const ac of this.aircraft) {
+			if (!ac.hasContrail || cIdx >= MAX_CONTRAILS) continue;
+			const dx = (ac.lon - eagleLon) * mPerDegLon;
+			const dz = (ac.lat - eagleLat) * mPerDegLat;
+			const dy = ac.altitude - eagleAltM;
+			const dist = Math.sqrt(dx * dx + dz * dz);
+			if (dist > acRenderDist) continue;
+
+			// Contrail: long thin white box behind the aircraft
+			const acHeading = ac.direction > 0 ? ac.heading : ac.heading + Math.PI;
+			const trailLen = 300 + ac.speed * 2; // Longer at higher speed
+			const behindX = dx - Math.sin(acHeading) * trailLen * 0.5;
+			const behindZ = -dz + Math.cos(acHeading) * trailLen * 0.5;
+
+			position.set(behindX, dy, behindZ);
+			euler.set(0, acHeading, 0);
+			quat.setFromEuler(euler);
+			scale.set(3, 2, trailLen);
+			matrix.compose(position, quat, scale);
+			this.contrailInstances.setMatrixAt(cIdx, matrix);
+			color.setHex(0xFFFFFF);
+			this.contrailInstances.setColorAt(cIdx, color);
+			cIdx++;
+		}
+		this.contrailInstances.count = cIdx;
+		if (cIdx > 0) {
+			this.contrailInstances.instanceMatrix.needsUpdate = true;
+			if (this.contrailInstances.instanceColor) this.contrailInstances.instanceColor.needsUpdate = true;
+		}
 	}
 
 	dispose() {
-		[this.vehicleInstances, this.boatInstances, this.aircraftInstances].forEach(inst => {
+		[this.vehicleInstances, this.boatInstances, this.aircraftInstances,
+		 this.skierInstances, this.sailInstances, this.contrailInstances].forEach(inst => {
 			if (inst) {
 				this.scene.remove(inst);
 				inst.dispose();
