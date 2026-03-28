@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import * as Cesium from 'cesium';
 
 /**
  * World Traffic System - Vehicles on highways, boats on water, aircraft in the sky.
@@ -246,6 +247,62 @@ export class TrafficSystem {
 		this.contrailInstances.frustumCulled = false;
 		this.contrailInstances.layers.set(0);
 		this.scene.add(this.contrailInstances);
+
+		// Chairlift towers and cables (static geometry, not instanced)
+		this.chairliftGroup = new THREE.Group();
+		this.chairliftGroup.visible = false;
+		this.chairliftGroup.layers.set(0);
+		const towerMat = new THREE.MeshLambertMaterial({ color: 0x666666 });
+		const cableMat = new THREE.MeshBasicMaterial({ color: 0x333333 });
+		for (const slope of SKI_SLOPES) {
+			// 5 towers per lift line
+			for (let t = 0; t <= 4; t++) {
+				const frac = t / 4;
+				const tLon = slope.topLon + (slope.botLon - slope.topLon) * frac;
+				const tLat = slope.topLat + (slope.botLat - slope.topLat) * frac;
+				const tAlt = slope.topAlt + (slope.botAlt - slope.topAlt) * frac;
+				// Offset slightly from slope center (lift is beside the run)
+				const heading = Math.atan2(slope.botLon - slope.topLon, slope.botLat - slope.topLat);
+				const offsetLon = Math.cos(heading + Math.PI/2) * 15 / (111320 * Math.cos(tLat * Math.PI / 180));
+				const offsetLat = Math.sin(heading + Math.PI/2) * 15 / 111320;
+
+				const tower = {
+					lon: tLon + offsetLon,
+					lat: tLat + offsetLat,
+					alt: tAlt,
+					height: 10 + (1 - frac) * 5 // Taller at top
+				};
+
+				// Store for rendering
+				if (!this.liftTowers) this.liftTowers = [];
+				this.liftTowers.push(tower);
+
+				const towerGeo = new THREE.BoxGeometry(0.8, tower.height, 0.8);
+				const towerMesh = new THREE.Mesh(towerGeo, towerMat);
+				towerMesh.userData = { lon: tower.lon, lat: tower.lat, alt: tower.alt, height: tower.height };
+				towerMesh.layers.set(0);
+				this.chairliftGroup.add(towerMesh);
+
+				// Cross-arm at top
+				const armGeo = new THREE.BoxGeometry(4, 0.3, 0.3);
+				const arm = new THREE.Mesh(armGeo, towerMat);
+				arm.userData = { lon: tower.lon, lat: tower.lat, alt: tower.alt + tower.height, height: 0.3 };
+				arm.layers.set(0);
+				this.chairliftGroup.add(arm);
+			}
+
+			// Cable: thin cylinder from top to bottom
+			const cableGeo = new THREE.CylinderGeometry(0.1, 0.1, 1, 4);
+			const cable = new THREE.Mesh(cableGeo, cableMat);
+			cable.userData = {
+				isLiftCable: true,
+				topLon: slope.topLon, topLat: slope.topLat, topAlt: slope.topAlt + 12,
+				botLon: slope.botLon, botLat: slope.botLat, botAlt: slope.botAlt + 12,
+			};
+			cable.layers.set(0);
+			this.chairliftGroup.add(cable);
+		}
+		this.scene.add(this.chairliftGroup);
 
 		this.spawnVehicles();
 		this.spawnBoats();
@@ -576,6 +633,50 @@ export class TrafficSystem {
 			if (this.aircraftInstances.instanceColor) this.aircraftInstances.instanceColor.needsUpdate = true;
 		}
 
+		// ========== CHAIRLIFTS ==========
+		if (this.chairliftGroup) {
+			const liftRenderDist = Math.max(5000, eagleAltM * 4);
+			// Check if any ski resort is in range
+			const skiCenter = { lon: -116.862, lat: 34.228 };
+			const skiDx = (skiCenter.lon - eagleLon) * mPerDegLon;
+			const skiDz = (skiCenter.lat - eagleLat) * mPerDegLat;
+			const skiDist = Math.sqrt(skiDx * skiDx + skiDz * skiDz);
+
+			this.chairliftGroup.visible = skiDist < liftRenderDist;
+
+			if (this.chairliftGroup.visible) {
+				this.chairliftGroup.children.forEach(child => {
+					if (child.userData && child.userData.lon !== undefined) {
+						const cdx = (child.userData.lon - eagleLon) * mPerDegLon;
+						const cdz = (child.userData.lat - eagleLat) * mPerDegLat;
+						const cdy = child.userData.alt - eagleAltM;
+
+						if (child.userData.isLiftCable) {
+							// Cable: stretch from top to bottom station
+							const topDx = (child.userData.topLon - eagleLon) * mPerDegLon;
+							const topDz = (child.userData.topLat - eagleLat) * mPerDegLat;
+							const topDy = child.userData.topAlt - eagleAltM;
+							const botDx = (child.userData.botLon - eagleLon) * mPerDegLon;
+							const botDz = (child.userData.botLat - eagleLat) * mPerDegLat;
+							const botDy = child.userData.botAlt - eagleAltM;
+
+							const midX = (topDx + botDx) / 2;
+							const midY = (topDy + botDy) / 2;
+							const midZ = (-topDz + -botDz) / 2;
+							const cLen = Math.sqrt((topDx-botDx)**2 + (topDy-botDy)**2 + (topDz-botDz)**2);
+
+							child.position.set(midX, midY, midZ);
+							child.scale.set(1, cLen, 1);
+							child.lookAt(topDx, topDy, -topDz);
+							child.rotateX(Math.PI / 2);
+						} else {
+							child.position.set(cdx, cdy + child.userData.height / 2, -cdz);
+						}
+					}
+				});
+			}
+		}
+
 		// ========== SAILS ON SAILBOATS ==========
 		let sIdx = 0;
 		for (const boat of this.boats) {
@@ -606,23 +707,34 @@ export class TrafficSystem {
 		}
 
 		// ========== SKIERS ON SLOPES ==========
-		const skierRenderDist = Math.max(2000, eagleAltM * 3);
+		const skierRenderDist = Math.max(6000, eagleAltM * 5);
 		let kIdx = 0;
 		for (const skier of this.skiers) {
-			// Animate: ski down then ride lift back up
 			const sl = skier.slope;
 			const segLen = Math.sqrt(
 				((sl.botLon - sl.topLon) * mPerDegLon) ** 2 +
 				((sl.botLat - sl.topLat) * mPerDegLat) ** 2
 			);
-			skier.t += skier.direction * skier.speed * dt / segLen;
+			skier.t += skier.direction * skier.speed * dt / Math.max(1, segLen);
 
-			if (skier.t > 1.0) { skier.t = 1.0; skier.direction = -1; skier.speed *= 0.3; } // Slow lift ride up
+			if (skier.t > 1.0) { skier.t = 1.0; skier.direction = -1; skier.speed = 2; }
 			if (skier.t < 0) { skier.t = 0; skier.direction = 1; skier.speed = skier.isSnowboarder ? (4 + Math.random() * 8) : (5 + Math.random() * 10); }
 
 			skier.lon = sl.topLon + (sl.botLon - sl.topLon) * skier.t;
 			skier.lat = sl.topLat + (sl.botLat - sl.topLat) * skier.t;
-			skier.alt = sl.topAlt + (sl.botAlt - sl.topAlt) * skier.t;
+
+			// Use terrain height instead of hardcoded altitude
+			try {
+				var cart = Cesium.Cartographic.fromDegrees(skier.lon, skier.lat);
+				var th = this.viewer.scene.globe.getHeight(cart);
+				if (th !== undefined && th !== null) {
+					skier.alt = th + 1.0;
+				} else {
+					skier.alt = sl.topAlt + (sl.botAlt - sl.topAlt) * skier.t;
+				}
+			} catch(e) {
+				skier.alt = sl.topAlt + (sl.botAlt - sl.topAlt) * skier.t;
+			}
 
 			const dx = (skier.lon - eagleLon) * mPerDegLon;
 			const dz = (skier.lat - eagleLat) * mPerDegLat;
@@ -630,11 +742,14 @@ export class TrafficSystem {
 			if (dist > skierRenderDist || kIdx >= MAX_SKIERS) continue;
 
 			const dy = skier.alt - eagleAltM;
+
+			// Scale skiers bigger at distance so they're visible
+			const distScale = Math.max(1, dist / 500);
+
 			position.set(dx, dy, -dz);
 			euler.set(0, skier.heading, 0);
 			quat.setFromEuler(euler);
-			// Skiers: tiny upright figures
-			scale.set(0.5, 1.8, 0.5);
+			scale.set(0.8 * distScale, 1.8 * distScale, 0.8 * distScale);
 			matrix.compose(position, quat, scale);
 			this.skierInstances.setMatrixAt(kIdx, matrix);
 			color.setHex(skier.color);
