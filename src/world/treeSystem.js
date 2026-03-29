@@ -218,48 +218,63 @@ export class TreeSystem {
 	}
 
 	init() {
-		// Create trunk geometry (cylinder)
+		// Trunk geometry (cylinder)
 		this.trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 1.0, 5, 1);
-		this.trunkGeometry.translate(0, 0.5, 0); // Origin at base
+		this.trunkGeometry.translate(0, 0.5, 0);
 
-		// Create conifer crown geometry (cone)
+		// Crown geometries for different tree types
 		this.crownGeometries.conifer = new THREE.ConeGeometry(1.0, 1.0, 6, 1);
 		this.crownGeometries.conifer.translate(0, 0.5, 0);
-
-		// Create deciduous crown geometry (sphere)
 		this.crownGeometries.deciduous = new THREE.SphereGeometry(1.0, 5, 4);
+		this.crownGeometries.deciduous.translate(0, 0, 0);
+		// Palm crown: flattened sphere (wide, short)
+		this.crownGeometries.palm = new THREE.SphereGeometry(1.0, 6, 4);
+		this.crownGeometries.palm.scale(1, 0.4, 1);
+		this.crownGeometries.palm.translate(0, 0.2, 0);
+		// Cactus: tall cylinder
+		this.crownGeometries.cactus = new THREE.CylinderGeometry(0.3, 0.4, 1.0, 5, 1);
+		this.crownGeometries.cactus.translate(0, 0.5, 0);
 
-		// Create instanced meshes
-		const trunkMaterial = new THREE.MeshLambertMaterial({
-			color: 0x5C3A1E,
-			flatShading: true
-		});
-
-		const crownMaterial = new THREE.MeshLambertMaterial({
-			color: 0x2D5A27,
-			flatShading: true,
-		});
-
-		this.trunkInstances = new THREE.InstancedMesh(
-			this.trunkGeometry,
-			trunkMaterial,
-			TREE_CONFIG.maxTrees
-		);
+		// Trunk instanced mesh (shared by all trees)
+		const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x5C3A1E, flatShading: true });
+		this.trunkInstances = new THREE.InstancedMesh(this.trunkGeometry, trunkMaterial, TREE_CONFIG.maxTrees);
 		this.trunkInstances.count = 0;
 		this.trunkInstances.frustumCulled = false;
 		this.trunkInstances.layers.set(0);
 
-		this.crownInstances = new THREE.InstancedMesh(
-			this.crownGeometries.conifer,
-			crownMaterial,
-			TREE_CONFIG.maxTrees
-		);
-		this.crownInstances.count = 0;
-		this.crownInstances.frustumCulled = false;
-		this.crownInstances.layers.set(0);
+		// Separate crown instanced meshes for each shape type
+		const coniferMat = new THREE.MeshLambertMaterial({ color: 0x2D5A27, flatShading: true });
+		this.coniferInstances = new THREE.InstancedMesh(this.crownGeometries.conifer, coniferMat, TREE_CONFIG.maxTrees);
+		this.coniferInstances.count = 0;
+		this.coniferInstances.frustumCulled = false;
+		this.coniferInstances.layers.set(0);
+
+		const deciduousMat = new THREE.MeshLambertMaterial({ color: 0x3A7A30, flatShading: true });
+		this.deciduousInstances = new THREE.InstancedMesh(this.crownGeometries.deciduous, deciduousMat, 1000);
+		this.deciduousInstances.count = 0;
+		this.deciduousInstances.frustumCulled = false;
+		this.deciduousInstances.layers.set(0);
+
+		const palmMat = new THREE.MeshLambertMaterial({ color: 0x3A8B3A, flatShading: true });
+		this.palmInstances = new THREE.InstancedMesh(this.crownGeometries.palm, palmMat, 500);
+		this.palmInstances.count = 0;
+		this.palmInstances.frustumCulled = false;
+		this.palmInstances.layers.set(0);
+
+		const cactusMat = new THREE.MeshLambertMaterial({ color: 0x4A7A4A, flatShading: true });
+		this.cactusInstances = new THREE.InstancedMesh(this.crownGeometries.cactus, cactusMat, 500);
+		this.cactusInstances.count = 0;
+		this.cactusInstances.frustumCulled = false;
+		this.cactusInstances.layers.set(0);
+
+		// Keep legacy reference for compatibility
+		this.crownInstances = this.coniferInstances;
 
 		this.scene.add(this.trunkInstances);
-		this.scene.add(this.crownInstances);
+		this.scene.add(this.coniferInstances);
+		this.scene.add(this.deciduousInstances);
+		this.scene.add(this.palmInstances);
+		this.scene.add(this.cactusInstances);
 
 		this.initialized = true;
 	}
@@ -485,77 +500,99 @@ export class TreeSystem {
 			}
 		}
 
-		// Build instance matrices
-		let treeIdx = 0;
+		// Build instance matrices - route trees to correct crown shape
+		let trunkIdx = 0;
+		let coniferIdx = 0;
+		let deciduousIdx = 0;
+		let palmIdx = 0;
+		let cactusIdx = 0;
 		const matrix = new THREE.Matrix4();
 		const position = new THREE.Vector3();
 		const quaternion = new THREE.Quaternion();
 		const scale = new THREE.Vector3();
 		const color = new THREE.Color();
 
+		// Determine which crown type each biome uses
+		const biomeShape = {
+			mountain: 'conifer', chaparral: 'deciduous',
+			desert: 'cactus', coastal: 'palm', urban: 'deciduous',
+		};
+
 		for (const [key, trees] of this.activeCells) {
 			for (const tree of trees) {
-				if (treeIdx >= TREE_CONFIG.maxTrees) break;
+				if (trunkIdx >= TREE_CONFIG.maxTrees) break;
 
 				const dist = Math.sqrt(tree.x * tree.x + tree.z * tree.z);
 				if (dist > renderDist) continue;
 
-				// LOD: skip small details for distant trees
 				const lodScale = dist > TREE_CONFIG.lodFar ? 0.7 :
 					dist > TREE_CONFIG.lodNear ? 0.85 : 1.0;
 
 				const sp = tree.species;
 				const sz = tree.sizeScale * lodScale;
-
-				// Height above eagle's terrain (relative positioning)
 				const relativeHeight = tree.terrainHeight - eagleAlt;
 
-				// Trunk instance
+				// Trunk
 				position.set(tree.x, relativeHeight, tree.z);
-				scale.set(
-					sp.trunkRadius * sz * 2,
-					sp.trunkHeight * sz,
-					sp.trunkRadius * sz * 2
-				);
+				scale.set(sp.trunkRadius * sz * 2, sp.trunkHeight * sz, sp.trunkRadius * sz * 2);
 				matrix.compose(position, quaternion, scale);
-				this.trunkInstances.setMatrixAt(treeIdx, matrix);
-
-				// Trunk color with variation
+				this.trunkInstances.setMatrixAt(trunkIdx, matrix);
 				color.setHex(sp.trunkColor);
-				const colorVar = 0.8 + seededRandom(Math.floor(tree.x), Math.floor(tree.z)) * 0.4;
-				color.multiplyScalar(colorVar);
-				this.trunkInstances.setColorAt(treeIdx, color);
+				color.multiplyScalar(0.8 + seededRandom(Math.floor(tree.x), Math.floor(tree.z)) * 0.4);
+				this.trunkInstances.setColorAt(trunkIdx, color);
+				trunkIdx++;
 
-				// Crown instance (positioned on top of trunk)
+				// Crown - pick the right instanced mesh based on biome
 				position.set(tree.x, relativeHeight + sp.trunkHeight * sz * 0.7, tree.z);
-				scale.set(
-					sp.crownRadius * sz * 2,
-					sp.crownHeight * sz,
-					sp.crownRadius * sz * 2
-				);
+				scale.set(sp.crownRadius * sz * 2, sp.crownHeight * sz, sp.crownRadius * sz * 2);
 				matrix.compose(position, quaternion, scale);
-				this.crownInstances.setMatrixAt(treeIdx, matrix);
-
-				// Crown color with seasonal variation
 				color.setHex(sp.crownColor);
-				const greenVar = 0.7 + seededRandom(Math.floor(tree.x) + 1000, Math.floor(tree.z) + 1000) * 0.6;
-				color.multiplyScalar(greenVar);
-				this.crownInstances.setColorAt(treeIdx, color);
+				color.multiplyScalar(0.7 + seededRandom(Math.floor(tree.x) + 1000, Math.floor(tree.z) + 1000) * 0.6);
 
-				treeIdx++;
+				const shape = biomeShape[sp.biome] || 'conifer';
+				if (shape === 'conifer' && coniferIdx < TREE_CONFIG.maxTrees) {
+					this.coniferInstances.setMatrixAt(coniferIdx, matrix);
+					this.coniferInstances.setColorAt(coniferIdx, color);
+					coniferIdx++;
+				} else if (shape === 'deciduous' && deciduousIdx < 1000) {
+					this.deciduousInstances.setMatrixAt(deciduousIdx, matrix);
+					this.deciduousInstances.setColorAt(deciduousIdx, color);
+					deciduousIdx++;
+				} else if (shape === 'palm' && palmIdx < 500) {
+					this.palmInstances.setMatrixAt(palmIdx, matrix);
+					this.palmInstances.setColorAt(palmIdx, color);
+					palmIdx++;
+				} else if (shape === 'cactus' && cactusIdx < 500) {
+					this.cactusInstances.setMatrixAt(cactusIdx, matrix);
+					this.cactusInstances.setColorAt(cactusIdx, color);
+					cactusIdx++;
+				} else if (coniferIdx < TREE_CONFIG.maxTrees) {
+					// Fallback to conifer
+					this.coniferInstances.setMatrixAt(coniferIdx, matrix);
+					this.coniferInstances.setColorAt(coniferIdx, color);
+					coniferIdx++;
+				}
 			}
-			if (treeIdx >= TREE_CONFIG.maxTrees) break;
+			if (trunkIdx >= TREE_CONFIG.maxTrees) break;
 		}
 
-		this.trunkInstances.count = treeIdx;
-		this.crownInstances.count = treeIdx;
+		this.trunkInstances.count = trunkIdx;
+		this.coniferInstances.count = coniferIdx;
+		this.deciduousInstances.count = deciduousIdx;
+		this.palmInstances.count = palmIdx;
+		this.cactusInstances.count = cactusIdx;
 
-		if (treeIdx > 0) {
-			this.trunkInstances.instanceMatrix.needsUpdate = true;
-			this.crownInstances.instanceMatrix.needsUpdate = true;
-			if (this.trunkInstances.instanceColor) this.trunkInstances.instanceColor.needsUpdate = true;
-			if (this.crownInstances.instanceColor) this.crownInstances.instanceColor.needsUpdate = true;
-		}
+		const updateInst = (inst) => {
+			if (inst.count > 0) {
+				inst.instanceMatrix.needsUpdate = true;
+				if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+			}
+		};
+		updateInst(this.trunkInstances);
+		updateInst(this.coniferInstances);
+		updateInst(this.deciduousInstances);
+		updateInst(this.palmInstances);
+		updateInst(this.cactusInstances);
 
 		this.lastUpdatePos = { lon: eagleLon, lat: eagleLat };
 	}
@@ -566,18 +603,17 @@ export class TreeSystem {
 	clear() {
 		this.activeCells.clear();
 		this.trunkInstances.count = 0;
-		this.crownInstances.count = 0;
+		this.coniferInstances.count = 0;
+		this.deciduousInstances.count = 0;
+		this.palmInstances.count = 0;
+		this.cactusInstances.count = 0;
 	}
 
 	dispose() {
-		if (this.trunkInstances) {
-			this.scene.remove(this.trunkInstances);
-			this.trunkInstances.dispose();
-		}
-		if (this.crownInstances) {
-			this.scene.remove(this.crownInstances);
-			this.crownInstances.dispose();
-		}
+		[this.trunkInstances, this.coniferInstances, this.deciduousInstances,
+		 this.palmInstances, this.cactusInstances].forEach(inst => {
+			if (inst) { this.scene.remove(inst); inst.dispose(); }
+		});
 		if (this.trunkGeometry) this.trunkGeometry.dispose();
 		for (const g of Object.values(this.crownGeometries)) g.dispose();
 	}
