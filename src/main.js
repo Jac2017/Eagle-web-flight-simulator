@@ -419,10 +419,44 @@ function initThree() {
 			planeModel.layers.set(1);
 			planeModel.traverse(child => {
 				child.layers.set(1);
-				if (child.isMesh) {
-					// Recolor to eagle brown/white
+				if (child.isMesh && child.geometry) {
+					// Repaint vertex colors to eagle coloring:
+					// Body/wings = dark brown, head area = white, beak tip = yellow
+					const colors = child.geometry.attributes.color;
+					const positions = child.geometry.attributes.position;
+					if (colors && positions) {
+						const bbox = new THREE.Box3().setFromBufferAttribute(positions);
+						const size = new THREE.Vector3();
+						bbox.getSize(size);
+						const maxZ = bbox.max.z; // Front of bird
+						const maxY = bbox.max.y; // Top of bird
+
+						for (let i = 0; i < positions.count; i++) {
+							const z = positions.getZ(i);
+							const y = positions.getY(i);
+							const zNorm = (z - bbox.min.z) / size.z; // 0=tail, 1=head
+							const yNorm = (y - bbox.min.y) / size.y; // 0=bottom, 1=top
+
+							if (zNorm > 0.75 && yNorm > 0.5) {
+								// Head area: white
+								colors.setXYZ(i, 0.96, 0.94, 0.90);
+							} else if (zNorm > 0.85) {
+								// Beak: yellow-orange
+								colors.setXYZ(i, 0.9, 0.65, 0.1);
+							} else if (zNorm < 0.15) {
+								// Tail: white
+								colors.setXYZ(i, 0.94, 0.92, 0.88);
+							} else {
+								// Body and wings: dark chocolate brown
+								const variation = 0.08 + Math.random() * 0.04;
+								colors.setXYZ(i, 0.12 + variation, 0.06 + variation * 0.5, 0.02 + variation * 0.3);
+							}
+						}
+						colors.needsUpdate = true;
+					}
+
 					child.material = new THREE.MeshLambertMaterial({
-						color: 0x2A1505,
+						vertexColors: true,
 						morphTargets: true,
 						side: THREE.DoubleSide,
 					});
