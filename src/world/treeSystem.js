@@ -460,19 +460,22 @@ export class TreeSystem {
 
 		const eagleLon = state.lon;
 		const eagleLat = state.lat;
-		const eagleAlt = state.alt;
+		const eagleAltM = state.alt * 0.3048; // Convert feet to meters
 
 		// Don't render trees if too high (they'd be invisible)
-		if (eagleAlt > 5000) {
+		if (eagleAltM > 3000) {
 			this.trunkInstances.count = 0;
-			this.crownInstances.count = 0;
+			this.coniferInstances.count = 0;
+			this.deciduousInstances.count = 0;
+			this.palmInstances.count = 0;
+			this.cactusInstances.count = 0;
 			return;
 		}
 
-		// Adaptive render distance based on altitude
+		// Adaptive render distance based on altitude (meters)
 		const renderDist = Math.min(
 			TREE_CONFIG.renderDistance,
-			Math.max(400, eagleAlt * 1.5)
+			Math.max(400, eagleAltM * 2)
 		);
 
 		// Calculate grid cell range
@@ -530,7 +533,7 @@ export class TreeSystem {
 
 				const sp = tree.species;
 				const sz = tree.sizeScale * lodScale;
-				const relativeHeight = tree.terrainHeight - eagleAlt;
+				const relativeHeight = tree.terrainHeight - eagleAltM;
 
 				// Trunk
 				position.set(tree.x, relativeHeight, tree.z);
