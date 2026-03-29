@@ -156,5 +156,48 @@ export function createTerritoryBoundary(viewer) {
 		}
 	});
 
-	return { boundaryEntity, centerEntity };
+	// Key landmark labels visible on the map
+	const landmarks = [
+		{ name: 'LAS VEGAS', lon: -115.1728, lat: 36.1147, icon: '🎰' },
+		{ name: 'HOLLYWOOD', lon: -118.3215, lat: 34.1341, icon: '🎬' },
+		{ name: '29 PALMS', lon: -116.0542, lat: 34.1356, icon: '🌴' },
+		{ name: 'FT IRWIN NTC', lon: -116.6833, lat: 35.2628, icon: '⭐' },
+		{ name: 'REAGAN LIBRARY', lon: -118.8200, lat: 34.2597, icon: '🏛' },
+		{ name: 'ROSE BOWL', lon: -118.1676, lat: 34.1613, icon: '🏟' },
+		{ name: 'BIG BEAR SKI', lon: -116.8595, lat: 34.2272, icon: '⛷' },
+		{ name: 'LOS ANGELES', lon: -118.2437, lat: 34.0522, icon: '🏙' },
+		{ name: 'SAN DIEGO', lon: -117.1611, lat: 32.7157, icon: '🏙' },
+		{ name: 'PHOENIX', lon: -112.0740, lat: 33.4484, icon: '🏜' },
+		{ name: 'PALM SPRINGS', lon: -116.5453, lat: 33.8303, icon: '🌴' },
+		{ name: 'BAKERSFIELD', lon: -119.0187, lat: 35.3733, icon: '🏙' },
+	];
+
+	const landmarkEntities = [];
+	for (const lm of landmarks) {
+		const entity = viewer.entities.add({
+			position: Cesium.Cartesian3.fromDegrees(lm.lon, lm.lat),
+			point: {
+				pixelSize: 6,
+				color: Cesium.Color.fromCssColorString('rgba(255, 120, 40, 0.8)'),
+				outlineColor: Cesium.Color.WHITE,
+				outlineWidth: 1,
+				disableDepthTestDistance: Number.POSITIVE_INFINITY,
+			},
+			label: {
+				text: lm.icon + ' ' + lm.name,
+				font: '11pt sans-serif',
+				style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+				outlineWidth: 2,
+				outlineColor: Cesium.Color.BLACK,
+				verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+				pixelOffset: new Cesium.Cartesian2(0, -10),
+				disableDepthTestDistance: Number.POSITIVE_INFINITY,
+				fillColor: Cesium.Color.fromCssColorString('rgba(255, 200, 100, 0.95)'),
+				scaleByDistance: new Cesium.NearFarScalar(1000, 1.0, 500000, 0.4),
+			}
+		});
+		landmarkEntities.push(entity);
+	}
+
+	return { boundaryEntity, centerEntity, landmarkEntities };
 }
