@@ -154,7 +154,9 @@ let pauseStartTime = 0;
 
 let scene, camera, renderer;
 let planeModel;
-let eagleGroup; // The procedural eagle model
+let eagleGroup; // Fallback procedural eagle
+let eagleMixer; // AnimationMixer for GLB eagle
+let eagleFlapAction; // Wing flap animation action
 let clock;
 let physics = new PlanePhysics();
 let controller = new PlaneController();
@@ -404,41 +406,92 @@ function initThree() {
 		updateLoadingUI();
 	});
 
-	// Create procedural eagle model
-	try {
-		eagleGroup = createEagleModel();
+	// Load eagle 3D model (Three.js bird with morph target animation)
+	const loader = new GLTFLoader();
+	loader.load('./assets/models/eagle_bird.glb', (gltf) => {
+		try {
+			const mesh = gltf.scene;
 
-		planeModel = new THREE.Group();
-		planeModel.add(eagleGroup);
-		scene.add(planeModel);
+			planeModel = new THREE.Group();
+			planeModel.add(mesh);
+			scene.add(planeModel);
 
-		planeModel.layers.set(1);
-		planeModel.traverse(child => {
-			child.layers.set(1);
-		});
+			planeModel.layers.set(1);
+			planeModel.traverse(child => {
+				child.layers.set(1);
+				if (child.isMesh) {
+					// Recolor to eagle brown/white
+					child.material = new THREE.MeshLambertMaterial({
+						color: 0x2A1505,
+						morphTargets: true,
+						side: THREE.DoubleSide,
+					});
+				}
+			});
 
-		planeModel.position.copy(BASE_PLANE_POS);
-		planeModel.scale.set(1.5, 1.5, 1.5);
+			// Center and scale the bird model
+			const box = new THREE.Box3().setFromObject(mesh);
+			const center = box.getCenter(new THREE.Vector3());
+			mesh.position.sub(center);
 
-		weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
-		weaponSystem.onKill = (npc) => {
-			const pts = npc.score || 500;
-			state.score += pts;
-			try { soundManager.play('glitch-random'); } catch (e) { }
-			if (hud) {
-				hud.showKillNotification(npc.name, pts);
+			planeModel.position.copy(BASE_PLANE_POS);
+			planeModel.scale.set(0.008, 0.008, 0.008);
+			// Rotate to face forward (-Z in game convention)
+			mesh.rotation.y = Math.PI;
+
+			// Set up morph target animation for wing flapping
+			eagleMixer = new THREE.AnimationMixer(mesh);
+			if (gltf.animations && gltf.animations.length > 0) {
+				eagleFlapAction = eagleMixer.clipAction(gltf.animations[0]);
+				eagleFlapAction.play();
+				eagleFlapAction.paused = true; // We control speed manually
 			}
-		};
 
-		planeModel.traverse(child => {
-			child.layers.set(1);
-		});
-	} catch (e) {
-		console.error('Failed to create eagle model or weapon system', e);
-	}
+			weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
+			weaponSystem.onKill = (npc) => {
+				const pts = npc.score || 500;
+				state.score += pts;
+				try { soundManager.play('glitch-random'); } catch (e) { }
+				if (hud) {
+					hud.showKillNotification(npc.name, pts);
+				}
+			};
 
-	loadingStatus.model = true;
-	updateLoadingUI();
+			planeModel.traverse(child => {
+				child.layers.set(1);
+			});
+		} catch (e) {
+			console.error('Failed to setup eagle model', e);
+		}
+
+		loadingStatus.model = true;
+		updateLoadingUI();
+	}, undefined, (error) => {
+		console.error('Eagle model load failed, using fallback', error);
+		// Fallback: create simple procedural eagle if GLB fails
+		try {
+			eagleGroup = createEagleModel();
+			planeModel = new THREE.Group();
+			planeModel.add(eagleGroup);
+			scene.add(planeModel);
+			planeModel.layers.set(1);
+			planeModel.traverse(child => child.layers.set(1));
+			planeModel.position.copy(BASE_PLANE_POS);
+			planeModel.scale.set(1.5, 1.5, 1.5);
+
+			weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
+			weaponSystem.onKill = (npc) => {
+				const pts = npc.score || 500;
+				state.score += pts;
+				if (hud) hud.showKillNotification(npc.name, pts);
+			};
+			planeModel.traverse(child => child.layers.set(1));
+		} catch (e2) {
+			console.error('Fallback eagle also failed', e2);
+		}
+		loadingStatus.model = true;
+		updateLoadingUI();
+	});
 }
 
 function update(dt) {
@@ -814,8 +867,24 @@ function animate() {
 			hud.updatePauseMenu(state, currentRegionName, npcSystem ? npcSystem.npcs : []);
 		}
 
-		// Animate eagle wings
-		if (eagleGroup) {
+		// Animate eagle - use GLB morph target animation if available, else procedural
+		if (eagleMixer) {
+			// Drive flap animation speed based on flight state
+			if (state.isFlapping && state.flapStrength > 0) {
+				eagleFlapAction.paused = false;
+				eagleFlapAction.timeScale = 1.0 + state.flapStrength * 1.5;
+			} else if (state.isGliding) {
+				eagleFlapAction.paused = false;
+				eagleFlapAction.timeScale = 0.15; // Very slow soaring motion
+			} else if (state.isBoosting || state.isTurbo) {
+				eagleFlapAction.paused = false;
+				eagleFlapAction.timeScale = 0.05; // Nearly still, wings tucked
+			} else {
+				eagleFlapAction.paused = false;
+				eagleFlapAction.timeScale = 0.3;
+			}
+			eagleMixer.update(dt);
+		} else if (eagleGroup) {
 			updateEagleAnimation(eagleGroup, dt, state);
 		}
 
