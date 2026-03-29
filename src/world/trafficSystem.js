@@ -156,6 +156,7 @@ function seededRandom(x, y) {
 const MAX_VEHICLES = 800;
 const MAX_BOATS = 80;
 const MAX_AIRCRAFT = 20;
+const MAX_LIFT_PARTS = 60; // Lift towers + cross-arms
 
 export class TrafficSystem {
 	constructor(cesiumViewer, threeScene) {
@@ -248,61 +249,34 @@ export class TrafficSystem {
 		this.contrailInstances.layers.set(0);
 		this.scene.add(this.contrailInstances);
 
-		// Chairlift towers and cables (static geometry, not instanced)
-		this.chairliftGroup = new THREE.Group();
-		this.chairliftGroup.visible = false;
-		this.chairliftGroup.layers.set(0);
-		const towerMat = new THREE.MeshLambertMaterial({ color: 0x666666 });
-		const cableMat = new THREE.MeshBasicMaterial({ color: 0x333333 });
+		// Chairlift tower instances
+		const liftGeo = new THREE.BoxGeometry(1, 1, 1);
+		liftGeo.translate(0, 0.5, 0);
+		const liftMat = new THREE.MeshLambertMaterial({ color: 0x777777 });
+		this.liftInstances = new THREE.InstancedMesh(liftGeo, liftMat, MAX_LIFT_PARTS);
+		this.liftInstances.count = 0;
+		this.liftInstances.frustumCulled = false;
+		this.liftInstances.layers.set(0);
+		this.scene.add(this.liftInstances);
+
+		// Precompute lift tower positions (data only, rendered via instancing)
+		this.liftTowers = [];
 		for (const slope of SKI_SLOPES) {
-			// 5 towers per lift line
+			const heading = Math.atan2(slope.botLon - slope.topLon, slope.botLat - slope.topLat);
 			for (let t = 0; t <= 4; t++) {
 				const frac = t / 4;
 				const tLon = slope.topLon + (slope.botLon - slope.topLon) * frac;
 				const tLat = slope.topLat + (slope.botLat - slope.topLat) * frac;
 				const tAlt = slope.topAlt + (slope.botAlt - slope.topAlt) * frac;
-				// Offset slightly from slope center (lift is beside the run)
-				const heading = Math.atan2(slope.botLon - slope.topLon, slope.botLat - slope.topLat);
 				const offsetLon = Math.cos(heading + Math.PI/2) * 15 / (111320 * Math.cos(tLat * Math.PI / 180));
 				const offsetLat = Math.sin(heading + Math.PI/2) * 15 / 111320;
-
-				const tower = {
-					lon: tLon + offsetLon,
-					lat: tLat + offsetLat,
-					alt: tAlt,
-					height: 10 + (1 - frac) * 5 // Taller at top
-				};
-
-				// Store for rendering
-				if (!this.liftTowers) this.liftTowers = [];
-				this.liftTowers.push(tower);
-
-				const towerGeo = new THREE.BoxGeometry(0.8, tower.height, 0.8);
-				const towerMesh = new THREE.Mesh(towerGeo, towerMat);
-				towerMesh.userData = { lon: tower.lon, lat: tower.lat, alt: tower.alt, height: tower.height };
-				towerMesh.layers.set(0);
-				this.chairliftGroup.add(towerMesh);
-
-				// Cross-arm at top
-				const armGeo = new THREE.BoxGeometry(4, 0.3, 0.3);
-				const arm = new THREE.Mesh(armGeo, towerMat);
-				arm.userData = { lon: tower.lon, lat: tower.lat, alt: tower.alt + tower.height, height: 0.3 };
-				arm.layers.set(0);
-				this.chairliftGroup.add(arm);
+				const height = 10 + (1 - frac) * 5;
+				// Tower post
+				this.liftTowers.push({ lon: tLon + offsetLon, lat: tLat + offsetLat, alt: tAlt, w: 0.8, h: height, d: 0.8 });
+				// Cross-arm
+				this.liftTowers.push({ lon: tLon + offsetLon, lat: tLat + offsetLat, alt: tAlt + height, w: 5, h: 0.4, d: 0.4 });
 			}
-
-			// Cable: thin cylinder from top to bottom
-			const cableGeo = new THREE.CylinderGeometry(0.1, 0.1, 1, 4);
-			const cable = new THREE.Mesh(cableGeo, cableMat);
-			cable.userData = {
-				isLiftCable: true,
-				topLon: slope.topLon, topLat: slope.topLat, topAlt: slope.topAlt + 12,
-				botLon: slope.botLon, botLat: slope.botLat, botAlt: slope.botAlt + 12,
-			};
-			cable.layers.set(0);
-			this.chairliftGroup.add(cable);
 		}
-		this.scene.add(this.chairliftGroup);
 
 		this.spawnVehicles();
 		this.spawnBoats();
@@ -633,47 +607,39 @@ export class TrafficSystem {
 			if (this.aircraftInstances.instanceColor) this.aircraftInstances.instanceColor.needsUpdate = true;
 		}
 
-		// ========== CHAIRLIFTS ==========
-		if (this.chairliftGroup) {
-			const liftRenderDist = Math.max(5000, eagleAltM * 4);
-			// Check if any ski resort is in range
-			const skiCenter = { lon: -116.862, lat: 34.228 };
-			const skiDx = (skiCenter.lon - eagleLon) * mPerDegLon;
-			const skiDz = (skiCenter.lat - eagleLat) * mPerDegLat;
-			const skiDist = Math.sqrt(skiDx * skiDx + skiDz * skiDz);
+		// ========== CHAIRLIFT TOWERS (instanced) ==========
+		if (this.liftTowers && this.liftInstances) {
+			const liftRenderDist = Math.max(6000, eagleAltM * 5);
+			let lIdx = 0;
+			for (const t of this.liftTowers) {
+				if (lIdx >= MAX_LIFT_PARTS) break;
+				const tdx = (t.lon - eagleLon) * mPerDegLon;
+				const tdz = (t.lat - eagleLat) * mPerDegLat;
+				const dist = Math.sqrt(tdx * tdx + tdz * tdz);
+				if (dist > liftRenderDist) continue;
 
-			this.chairliftGroup.visible = skiDist < liftRenderDist;
+				// Sample terrain for tower base altitude
+				let tAlt = t.alt;
+				try {
+					const tc = Cesium.Cartographic.fromDegrees(t.lon, t.lat);
+					const tth = this.viewer.scene.globe.getHeight(tc);
+					if (tth !== undefined && tth !== null) tAlt = tth;
+				} catch(e) {}
 
-			if (this.chairliftGroup.visible) {
-				this.chairliftGroup.children.forEach(child => {
-					if (child.userData && child.userData.lon !== undefined) {
-						const cdx = (child.userData.lon - eagleLon) * mPerDegLon;
-						const cdz = (child.userData.lat - eagleLat) * mPerDegLat;
-						const cdy = child.userData.alt - eagleAltM;
-
-						if (child.userData.isLiftCable) {
-							// Cable: stretch from top to bottom station
-							const topDx = (child.userData.topLon - eagleLon) * mPerDegLon;
-							const topDz = (child.userData.topLat - eagleLat) * mPerDegLat;
-							const topDy = child.userData.topAlt - eagleAltM;
-							const botDx = (child.userData.botLon - eagleLon) * mPerDegLon;
-							const botDz = (child.userData.botLat - eagleLat) * mPerDegLat;
-							const botDy = child.userData.botAlt - eagleAltM;
-
-							const midX = (topDx + botDx) / 2;
-							const midY = (topDy + botDy) / 2;
-							const midZ = (-topDz + -botDz) / 2;
-							const cLen = Math.sqrt((topDx-botDx)**2 + (topDy-botDy)**2 + (topDz-botDz)**2);
-
-							child.position.set(midX, midY, midZ);
-							child.scale.set(1, cLen, 1);
-							child.lookAt(topDx, topDy, -topDz);
-							child.rotateX(Math.PI / 2);
-						} else {
-							child.position.set(cdx, cdy + child.userData.height / 2, -cdz);
-						}
-					}
-				});
+				const tdy = tAlt - eagleAltM;
+				position.set(tdx, tdy, -tdz);
+				quat.identity();
+				scale.set(t.w, t.h, t.d);
+				matrix.compose(position, quat, scale);
+				this.liftInstances.setMatrixAt(lIdx, matrix);
+				color.setHex(0x777777);
+				this.liftInstances.setColorAt(lIdx, color);
+				lIdx++;
+			}
+			this.liftInstances.count = lIdx;
+			if (lIdx > 0) {
+				this.liftInstances.instanceMatrix.needsUpdate = true;
+				if (this.liftInstances.instanceColor) this.liftInstances.instanceColor.needsUpdate = true;
 			}
 		}
 
@@ -797,7 +763,7 @@ export class TrafficSystem {
 
 	dispose() {
 		[this.vehicleInstances, this.boatInstances, this.aircraftInstances,
-		 this.skierInstances, this.sailInstances, this.contrailInstances].forEach(inst => {
+		 this.skierInstances, this.sailInstances, this.contrailInstances, this.liftInstances].forEach(inst => {
 			if (inst) {
 				this.scene.remove(inst);
 				inst.dispose();
