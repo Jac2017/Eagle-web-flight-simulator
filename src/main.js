@@ -410,140 +410,113 @@ function initThree() {
 	const loader = new GLTFLoader();
 	loader.load('./assets/models/eagle_bird.glb', (gltf) => {
 		try {
-			const mesh = gltf.scene;
+			const birdMesh = gltf.scene;
 
 			planeModel = new THREE.Group();
-			planeModel.add(mesh);
-			scene.add(planeModel);
 
-			planeModel.layers.set(1);
-			planeModel.traverse(child => {
-				child.layers.set(1);
-				if (child.isMesh && child.geometry) {
-					const colors = child.geometry.attributes.color;
-					const positions = child.geometry.attributes.position;
-					if (colors && positions) {
-						const bbox = new THREE.Box3().setFromBufferAttribute(positions);
-						const size = new THREE.Vector3();
-						bbox.getSize(size);
-
-						for (let i = 0; i < positions.count; i++) {
-							const x = positions.getX(i);
-							const y = positions.getY(i);
-							const z = positions.getZ(i);
-							const zNorm = (z - bbox.min.z) / size.z; // 0=tail, 1=head
-							const yNorm = (y - bbox.min.y) / size.y; // 0=bottom, 1=top
-
-							// Shorten the stork legs: pull bottom vertices up toward body
-							if (yNorm < 0.3) {
-								const pullFactor = (0.3 - yNorm) * 0.7;
-								positions.setY(i, y + pullFactor * size.y);
-							}
-
-							// Color based on position
-							if (zNorm > 0.78 && yNorm > 0.45) {
-								// Head: bright white
-								colors.setXYZ(i, 0.97, 0.95, 0.91);
-							} else if (zNorm > 0.88) {
-								// Beak: deep yellow
-								colors.setXYZ(i, 0.92, 0.62, 0.05);
-							} else if (zNorm < 0.12) {
-								// Tail feathers: white
-								colors.setXYZ(i, 0.95, 0.93, 0.89);
-							} else if (yNorm < 0.35) {
-								// Legs/feet: golden yellow (eagle talons)
-								colors.setXYZ(i, 0.85, 0.65, 0.1);
-							} else {
-								// Body and wings: rich dark brown with variation
-								const v = 0.06 + Math.random() * 0.06;
-								colors.setXYZ(i, 0.10 + v, 0.05 + v * 0.5, 0.02 + v * 0.3);
-							}
-						}
-						positions.needsUpdate = true;
-						colors.needsUpdate = true;
-						child.geometry.computeVertexNormals();
-
-						// Also update morph target positions to shorten legs there too
-						if (child.geometry.morphAttributes && child.geometry.morphAttributes.position) {
-							for (const morphPos of child.geometry.morphAttributes.position) {
-								const mBbox = new THREE.Box3().setFromBufferAttribute(morphPos);
-								const mSize = new THREE.Vector3();
-								mBbox.getSize(mSize);
-								for (let i = 0; i < morphPos.count; i++) {
-									const my = morphPos.getY(i);
-									const myNorm = (my - mBbox.min.y) / mSize.y;
-									if (myNorm < 0.3) {
-										const pull = (0.3 - myNorm) * 0.7;
-										morphPos.setY(i, my + pull * mSize.y);
-									}
-								}
-								morphPos.needsUpdate = true;
-							}
-						}
-					}
-
-					child.material = new THREE.MeshLambertMaterial({
-						vertexColors: true,
+			// The stork model provides wing-flap animation via morph targets.
+			// We apply a clean dark brown material and let the shape speak for itself.
+			birdMesh.traverse(child => {
+				if (child.isMesh) {
+					// Replace material with a clean non-vertex-color material
+					child.material = new THREE.MeshPhongMaterial({
+						color: 0x1C0E04,
+						specular: 0x221100,
+						shininess: 5,
 						morphTargets: true,
-						side: THREE.DoubleSide,
+						flatShading: false,
 					});
 				}
 			});
 
-			// Add talon geometry to the eagle model
-			const talonMat = new THREE.MeshLambertMaterial({ color: 0xDDA800 });
-			const talonDark = new THREE.MeshLambertMaterial({ color: 0x222222 });
-			for (const side of [-1, 1]) {
-				// Short thick tarsus
-				const tarsus = new THREE.Mesh(new THREE.CylinderGeometry(8, 10, 35, 5), talonMat);
-				tarsus.position.set(side * 15, -50, -20);
-				tarsus.layers.set(1);
-				mesh.add(tarsus);
+			// Scale and orient the bird
+			const box = new THREE.Box3().setFromObject(birdMesh);
+			const center = box.getCenter(new THREE.Vector3());
+			const birdSize = new THREE.Vector3();
+			box.getSize(birdSize);
+			birdMesh.position.sub(center);
+			birdMesh.rotation.y = Math.PI;
 
-				// 3 forward toes + 1 rear toe with curved talons
-				for (let t = 0; t < 4; t++) {
-					const angle = t < 3 ? (t - 1) * 0.6 : Math.PI;
-					const toeLen = t < 3 ? 25 : 18;
-					const toe = new THREE.Mesh(new THREE.CylinderGeometry(3, 2, toeLen, 4), talonMat);
-					toe.position.set(
-						side * 15 + Math.sin(angle) * 12,
-						-68,
-						-20 + Math.cos(angle) * 10
-					);
-					toe.rotation.x = 0.5 + (t === 3 ? -1.0 : 0);
-					toe.rotation.z = angle * 0.2;
-					toe.layers.set(1);
-					mesh.add(toe);
+			// Wrap in a container we can scale
+			const birdContainer = new THREE.Group();
+			birdContainer.add(birdMesh);
+			// Normalize to ~0.3 units tall
+			const scaleFactor = 0.3 / birdSize.y;
+			birdContainer.scale.setScalar(scaleFactor);
+			planeModel.add(birdContainer);
 
-					// Black talon claw at tip
-					const claw = new THREE.Mesh(new THREE.ConeGeometry(3, 12, 4), talonDark);
-					claw.position.set(
-						side * 15 + Math.sin(angle) * 18,
-						-78,
-						-20 + Math.cos(angle) * 15
-					);
+			// === ADD EAGLE FEATURES ON TOP OF THE BIRD ===
+			// White head cap
+			const headMat = new THREE.MeshPhongMaterial({ color: 0xF5F0E8, specular: 0x444444, shininess: 10 });
+			const headGeo = new THREE.SphereGeometry(0.04, 8, 6);
+			const head = new THREE.Mesh(headGeo, headMat);
+			head.position.set(0, 0.06, 0.14);
+			head.scale.set(1.0, 0.9, 1.1);
+			planeModel.add(head);
+
+			// Yellow beak
+			const beakMat = new THREE.MeshPhongMaterial({ color: 0xE8A000, specular: 0x664400, shininess: 20 });
+			const beakGeo = new THREE.ConeGeometry(0.012, 0.04, 4);
+			const beak = new THREE.Mesh(beakGeo, beakMat);
+			beak.position.set(0, 0.04, 0.175);
+			beak.rotation.x = Math.PI * 0.45;
+			planeModel.add(beak);
+
+			// Golden eyes
+			const eyeMat = new THREE.MeshPhongMaterial({ color: 0xDDB000, specular: 0xFFFF00, shininess: 40 });
+			for (const s of [-1, 1]) {
+				const eye = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 5), eyeMat);
+				eye.position.set(s * 0.025, 0.065, 0.155);
+				planeModel.add(eye);
+				const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.004, 4, 4), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+				pupil.position.set(s * 0.028, 0.065, 0.16);
+				planeModel.add(pupil);
+			}
+
+			// White tail patch
+			const tailMat = new THREE.MeshPhongMaterial({ color: 0xF0ECE0, specular: 0x333333, shininess: 5 });
+			const tailGeo = new THREE.BoxGeometry(0.08, 0.01, 0.06);
+			const tail = new THREE.Mesh(tailGeo, tailMat);
+			tail.position.set(0, 0.0, -0.16);
+			planeModel.add(tail);
+
+			// Yellow talons (tucked under body)
+			const talonMat = new THREE.MeshPhongMaterial({ color: 0xDDA800 });
+			const clawMat = new THREE.MeshPhongMaterial({ color: 0x111111 });
+			for (const s of [-1, 1]) {
+				// Tarsus
+				const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.006, 0.04, 4), talonMat);
+				leg.position.set(s * 0.02, -0.06, -0.02);
+				planeModel.add(leg);
+				// Toes
+				for (let t = 0; t < 3; t++) {
+					const a = (t - 1) * 0.5;
+					const toe = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.001, 0.02, 3), talonMat);
+					toe.position.set(s * 0.02 + Math.sin(a) * 0.01, -0.08, -0.02 + Math.cos(a) * 0.008);
+					toe.rotation.x = 0.6;
+					planeModel.add(toe);
+					// Claw
+					const claw = new THREE.Mesh(new THREE.ConeGeometry(0.002, 0.008, 3), clawMat);
+					claw.position.set(s * 0.02 + Math.sin(a) * 0.015, -0.088, -0.02 + Math.cos(a) * 0.012);
 					claw.rotation.x = 0.8;
-					claw.layers.set(1);
-					mesh.add(claw);
+					planeModel.add(claw);
 				}
 			}
 
-			// Center and scale the bird model
-			const box = new THREE.Box3().setFromObject(mesh);
-			const center = box.getCenter(new THREE.Vector3());
-			mesh.position.sub(center);
+			scene.add(planeModel);
+
+			planeModel.layers.set(1);
+			planeModel.traverse(child => { child.layers.set(1); });
 
 			planeModel.position.copy(BASE_PLANE_POS);
-			planeModel.scale.set(0.008, 0.008, 0.008);
-			// Rotate to face forward (-Z in game convention)
-			mesh.rotation.y = Math.PI;
+			planeModel.scale.set(1.8, 1.8, 1.8);
 
 			// Set up morph target animation for wing flapping
-			eagleMixer = new THREE.AnimationMixer(mesh);
+			eagleMixer = new THREE.AnimationMixer(birdMesh);
 			if (gltf.animations && gltf.animations.length > 0) {
 				eagleFlapAction = eagleMixer.clipAction(gltf.animations[0]);
 				eagleFlapAction.play();
-				eagleFlapAction.paused = true; // We control speed manually
+				eagleFlapAction.paused = true;
 			}
 
 			weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
@@ -556,9 +529,7 @@ function initThree() {
 				}
 			};
 
-			planeModel.traverse(child => {
-				child.layers.set(1);
-			});
+			planeModel.traverse(child => { child.layers.set(1); });
 		} catch (e) {
 			console.error('Failed to setup eagle model', e);
 		}
@@ -567,7 +538,6 @@ function initThree() {
 		updateLoadingUI();
 	}, undefined, (error) => {
 		console.error('Eagle model load failed, using fallback', error);
-		// Fallback: create simple procedural eagle if GLB fails
 		try {
 			eagleGroup = createEagleModel();
 			planeModel = new THREE.Group();
@@ -577,7 +547,6 @@ function initThree() {
 			planeModel.traverse(child => child.layers.set(1));
 			planeModel.position.copy(BASE_PLANE_POS);
 			planeModel.scale.set(1.5, 1.5, 1.5);
-
 			weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
 			weaponSystem.onKill = (npc) => {
 				const pts = npc.score || 500;
