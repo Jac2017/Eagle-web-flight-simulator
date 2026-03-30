@@ -445,77 +445,44 @@ function initThree() {
 			birdContainer.scale.setScalar(scaleFactor);
 			planeModel.add(birdContainer);
 
-			// Measure the normalized bird to place parts correctly
-			const nb = new THREE.Box3().setFromObject(birdContainer);
-			const ns = new THREE.Vector3();
-			nb.getSize(ns);
-			// ns is now the actual size in planeModel local space
-			// For a stork normalized to 0.3 height: roughly 0.5 wide, 0.3 tall, 0.3 deep
-
-			// === EAGLE FEATURES - sized relative to bird body ===
-			// Head: small white cap over the bird's existing head (~8% of body length)
-			const headMat = new THREE.MeshPhongMaterial({ color: 0xF5F0E8, specular: 0x333333, shininess: 8 });
-			const headR = ns.z * 0.08; // Tiny relative to body
-			const head = new THREE.Mesh(new THREE.SphereGeometry(headR, 7, 5), headMat);
-			head.position.set(0, nb.max.y * 0.75, nb.max.z - headR * 0.5);
-			head.scale.set(1.0, 0.85, 1.1);
-			planeModel.add(head);
-
-			// Beak: small yellow hook
-			const beakMat = new THREE.MeshPhongMaterial({ color: 0xE8A000, specular: 0x664400, shininess: 15 });
-			const beakLen = headR * 1.2;
-			const beak = new THREE.Mesh(new THREE.ConeGeometry(headR * 0.35, beakLen, 4), beakMat);
-			beak.position.set(0, nb.max.y * 0.65, nb.max.z + headR * 0.3);
-			beak.rotation.x = Math.PI * 0.45;
-			planeModel.add(beak);
-
-			// Eyes: tiny dots on the head
-			const eyeMat = new THREE.MeshPhongMaterial({ color: 0xDDB000, shininess: 30 });
-			for (const s of [-1, 1]) {
-				const eyeR = headR * 0.2;
-				const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 5, 4), eyeMat);
-				eye.position.set(s * headR * 0.7, nb.max.y * 0.78, nb.max.z - headR * 0.1);
-				planeModel.add(eye);
-				const pupil = new THREE.Mesh(new THREE.SphereGeometry(eyeR * 0.5, 4, 3), new THREE.MeshBasicMaterial({ color: 0x000000 }));
-				pupil.position.set(s * headR * 0.85, nb.max.y * 0.78, nb.max.z + headR * 0.1);
-				planeModel.add(pupil);
-			}
-
-			// Tail: thin white patch at rear (bald eagle white tail)
-			const tailMat = new THREE.MeshPhongMaterial({ color: 0xF0ECE0, specular: 0x222222, shininess: 5 });
-			const tail = new THREE.Mesh(new THREE.BoxGeometry(ns.x * 0.2, ns.y * 0.03, ns.z * 0.12), tailMat);
-			tail.position.set(0, nb.min.y + ns.y * 0.4, nb.min.z + ns.z * 0.05);
-			planeModel.add(tail);
-
-			// Talons: small yellow feet tucked under body
-			const talonMat = new THREE.MeshPhongMaterial({ color: 0xDDA800 });
-			const clawMat = new THREE.MeshPhongMaterial({ color: 0x111111 });
-			const legLen = ns.y * 0.12;
-			const toeLen = ns.y * 0.06;
-			for (const s of [-1, 1]) {
-				const leg = new THREE.Mesh(new THREE.CylinderGeometry(legLen * 0.12, legLen * 0.15, legLen, 4), talonMat);
-				leg.position.set(s * ns.x * 0.04, nb.min.y - legLen * 0.3, nb.min.z + ns.z * 0.35);
-				planeModel.add(leg);
-				for (let t = 0; t < 3; t++) {
-					const a = (t - 1) * 0.5;
-					const toe = new THREE.Mesh(new THREE.CylinderGeometry(legLen * 0.06, legLen * 0.03, toeLen, 3), talonMat);
-					toe.position.set(
-						s * ns.x * 0.04 + Math.sin(a) * toeLen * 0.3,
-						nb.min.y - legLen * 0.6,
-						nb.min.z + ns.z * 0.35 + Math.cos(a) * toeLen * 0.2
-					);
-					toe.rotation.x = 0.5;
-					planeModel.add(toe);
-					const claw = new THREE.Mesh(new THREE.ConeGeometry(legLen * 0.04, toeLen * 0.4, 3), clawMat);
-					claw.position.set(
-						s * ns.x * 0.04 + Math.sin(a) * toeLen * 0.45,
-						nb.min.y - legLen * 0.75,
-						nb.min.z + ns.z * 0.35 + Math.cos(a) * toeLen * 0.3
-					);
-					claw.rotation.x = 0.7;
-					planeModel.add(claw);
+			// Recolor the bird's own vertex colors in place
+			// instead of bolting on oversized spheres/boxes
+			birdContainer.traverse(child => {
+				if (child.isMesh && child.geometry && child.geometry.attributes.color) {
+					const colors = child.geometry.attributes.color;
+					const positions = child.geometry.attributes.position;
+					const bb = new THREE.Box3().setFromBufferAttribute(positions);
+					const sz = new THREE.Vector3();
+					bb.getSize(sz);
+					for (let i = 0; i < positions.count; i++) {
+						const z = positions.getZ(i);
+						const y = positions.getY(i);
+						const zN = (z - bb.min.z) / sz.z; // 0=tail, 1=head
+						const yN = (y - bb.min.y) / sz.y; // 0=bottom, 1=top
+						if (zN > 0.80 && yN > 0.55) {
+							// Head: white
+							colors.setXYZ(i, 0.97, 0.95, 0.92);
+						} else if (zN < 0.10) {
+							// Tail: white
+							colors.setXYZ(i, 0.95, 0.93, 0.90);
+						} else if (yN < 0.25) {
+							// Feet: yellow
+							colors.setXYZ(i, 0.85, 0.65, 0.10);
+						} else {
+							// Body/wings: dark brown
+							colors.setXYZ(i, 0.12, 0.06, 0.02);
+						}
+					}
+					colors.needsUpdate = true;
+					// Switch to vertex-colored material
+					child.material = new THREE.MeshPhongMaterial({
+						vertexColors: true,
+						morphTargets: true,
+						flatShading: false,
+						shininess: 5,
+					});
 				}
-			}
+			});
 
 			scene.add(planeModel);
 
