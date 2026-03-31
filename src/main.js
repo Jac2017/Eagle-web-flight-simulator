@@ -418,7 +418,6 @@ function initThree() {
 			// We apply a clean dark brown material and let the shape speak for itself.
 			birdMesh.traverse(child => {
 				if (child.isMesh) {
-					// Replace material with a clean non-vertex-color material
 					child.material = new THREE.MeshPhongMaterial({
 						color: 0x1C0E04,
 						specular: 0x221100,
@@ -440,46 +439,55 @@ function initThree() {
 			// Wrap in a container we can scale
 			const birdContainer = new THREE.Group();
 			birdContainer.add(birdMesh);
-			// Normalize to ~0.3 units tall
-			const scaleFactor = 0.3 / birdSize.y;
+			// Normalize: scale wingspan to ~0.5 units
+			const scaleFactor = 0.5 / birdSize.x;
 			birdContainer.scale.setScalar(scaleFactor);
 			planeModel.add(birdContainer);
 
-			// Recolor the bird's own vertex colors in place
-			// instead of bolting on oversized spheres/boxes
+			// Paint eagle colors using exact vertex position knowledge
+			// Stork geometry: X=-98..98 (wings), Y=-6..24 (body), Z=-82..92 (tail..head)
 			birdContainer.traverse(child => {
 				if (child.isMesh && child.geometry && child.geometry.attributes.color) {
 					const colors = child.geometry.attributes.color;
 					const positions = child.geometry.attributes.position;
-					const bb = new THREE.Box3().setFromBufferAttribute(positions);
-					const sz = new THREE.Vector3();
-					bb.getSize(sz);
 					for (let i = 0; i < positions.count; i++) {
-						const z = positions.getZ(i);
+						const x = positions.getX(i);
 						const y = positions.getY(i);
-						const zN = (z - bb.min.z) / sz.z; // 0=tail, 1=head
-						const yN = (y - bb.min.y) / sz.y; // 0=bottom, 1=top
-						if (zN > 0.80 && yN > 0.55) {
-							// Head: white
-							colors.setXYZ(i, 0.97, 0.95, 0.92);
-						} else if (zN < 0.10) {
-							// Tail: white
-							colors.setXYZ(i, 0.95, 0.93, 0.90);
-						} else if (yN < 0.25) {
-							// Feet: yellow
-							colors.setXYZ(i, 0.85, 0.65, 0.10);
-						} else {
-							// Body/wings: dark brown
-							colors.setXYZ(i, 0.12, 0.06, 0.02);
+						const z = positions.getZ(i);
+
+						// Head: Z > 70 AND near centerline (not wingtips)
+						if (z > 70 && Math.abs(x) < 15 && y > 5) {
+							colors.setXYZ(i, 0.96, 0.93, 0.88); // White head
+						}
+						// Beak tip: very front
+						else if (z > 85) {
+							colors.setXYZ(i, 0.90, 0.63, 0.08); // Yellow beak
+						}
+						// Tail: Z < -65
+						else if (z < -65) {
+							colors.setXYZ(i, 0.94, 0.91, 0.86); // White tail
+						}
+						// Legs/feet: Y < 0 AND near center (not wing undersides)
+						else if (y < 0 && Math.abs(x) < 12) {
+							colors.setXYZ(i, 0.82, 0.62, 0.10); // Yellow talons
+						}
+						// Wing leading edge and tips: darker
+						else if (Math.abs(x) > 70) {
+							colors.setXYZ(i, 0.06, 0.03, 0.01); // Very dark wingtips
+						}
+						// Body and wings: dark brown with subtle variation
+						else {
+							const v = 0.02 * Math.sin(x * 0.1 + z * 0.05);
+							colors.setXYZ(i, 0.11 + v, 0.06 + v * 0.5, 0.02 + v * 0.3);
 						}
 					}
 					colors.needsUpdate = true;
-					// Switch to vertex-colored material
 					child.material = new THREE.MeshPhongMaterial({
 						vertexColors: true,
 						morphTargets: true,
 						flatShading: false,
-						shininess: 5,
+						shininess: 8,
+						specular: 0x221100,
 					});
 				}
 			});
