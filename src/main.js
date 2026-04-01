@@ -179,7 +179,7 @@ let fps = 0;
 let frameCount = 0;
 let lastFpsUpdate = 0;
 
-const BASE_PLANE_POS = new THREE.Vector3(0, -0.8, -2.75);
+const BASE_PLANE_POS = new THREE.Vector3(0, -1.5, -6.0);
 let visualOffset = new THREE.Vector3().copy(BASE_PLANE_POS);
 let visualRotation = new THREE.Euler(0, 0, 0);
 let boostRoll = 0;
@@ -428,9 +428,9 @@ function initThree() {
 			// Rotate 180° so eagle faces away from camera (head forward)
 			eagleMesh.rotation.y = Math.PI;
 
-			// Scale: the model is ~191 units wide. Scale to fill more of the frame.
+			// Scale eagle to fill a good portion of the screen
 			const maxDim = Math.max(size.x, size.y, size.z);
-			const scl = 0.9 / maxDim;
+			const scl = 3.0 / maxDim;
 			planeModel.scale.set(scl, scl, scl);
 
 			planeModel.position.copy(BASE_PLANE_POS);
