@@ -428,9 +428,9 @@ function initThree() {
 			// Rotate 180° so eagle faces away from camera (head forward)
 			eagleMesh.rotation.y = Math.PI;
 
-			// Scale: the model is ~191 units wide. We want ~0.3 units in scene.
+			// Scale: the model is ~191 units wide. Scale to fill more of the frame.
 			const maxDim = Math.max(size.x, size.y, size.z);
-			const scl = 0.3 / maxDim;
+			const scl = 0.9 / maxDim;
 			planeModel.scale.set(scl, scl, scl);
 
 			planeModel.position.copy(BASE_PLANE_POS);
