@@ -413,26 +413,34 @@ function initThree() {
 			const eagleMesh = gltf.scene;
 
 			planeModel = new THREE.Group();
+			planeModel.add(eagleMesh);
+			scene.add(planeModel);
 
-			// Center and measure the eagle
+			// Center the model by its bounding box
 			const box = new THREE.Box3().setFromObject(eagleMesh);
 			const center = box.getCenter(new THREE.Vector3());
 			const size = new THREE.Vector3();
 			box.getSize(size);
-			eagleMesh.position.sub(center);
 
-			// Scale to fit in view (~0.4 units wingspan)
-			const scaleFactor = 0.4 / Math.max(size.x, size.z);
-			eagleMesh.scale.setScalar(scaleFactor);
+			// Move the entire scene so the eagle is centered at origin
+			eagleMesh.position.set(-center.x, -center.y, -center.z);
 
-			planeModel.add(eagleMesh);
-			scene.add(planeModel);
-
-			planeModel.layers.set(1);
-			planeModel.traverse(child => { child.layers.set(1); });
+			// Scale: the model is ~191 units wide. We want ~0.3 units in scene.
+			const maxDim = Math.max(size.x, size.y, size.z);
+			const scl = 0.3 / maxDim;
+			planeModel.scale.set(scl, scl, scl);
 
 			planeModel.position.copy(BASE_PLANE_POS);
-			planeModel.scale.set(2.0, 2.0, 2.0);
+
+			// Set ALL children to layer 1 (including bones for SkinnedMesh)
+			planeModel.layers.set(1);
+			planeModel.traverse(child => {
+				child.layers.set(1);
+				// Ensure frustum culling doesn't hide the skinned mesh
+				if (child.isSkinnedMesh) {
+					child.frustumCulled = false;
+				}
+			});
 
 			// Set up skeletal animation
 			eagleMixer = new THREE.AnimationMixer(eagleMesh);
@@ -450,8 +458,6 @@ function initThree() {
 					hud.showKillNotification(npc.name, pts);
 				}
 			};
-
-			planeModel.traverse(child => { child.layers.set(1); });
 		} catch (e) {
 			console.error('Failed to setup eagle model', e);
 		}
