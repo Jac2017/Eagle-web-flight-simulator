@@ -3,16 +3,25 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { initCesium, setCameraToPlane, getViewer, setControlsEnabled, setRenderOptimization } from './world/cesiumWorld';
 import { PlanePhysics } from './plane/planePhysics';
 import { PlaneController } from './plane/planeController';
+import { createEagleModel, updateEagleAnimation } from './plane/eagleModel';
 import { movePosition } from './utils/math';
 import { calculateDistance, reverseGeocode } from './world/regions';
 import { HUD } from './ui/hud';
-import { JetFlame } from './plane/jetFlame';
 import { WeaponSystem } from './systems/weaponSystem';
 import { soundManager } from './utils/soundManager';
 import { NPCSystem } from './systems/npcSystem';
 import { DialogueSystem } from './systems/dialogueSystem';
+import { AmbientSoundSystem } from './systems/ambientSound';
 import * as Cesium from 'cesium';
 import { particles } from './utils/particles';
+import { TreeSystem } from './world/treeSystem';
+import { WaterSystem } from './world/waterSystem';
+import { LandmarkSystem } from './world/landmarks';
+import { CitySystem } from './world/citySystem';
+import { TrafficSystem } from './world/trafficSystem';
+import { NestSystem, NEST_LOCATION } from './world/nestSystem';
+import { DayNightWeatherSystem } from './world/dayNightWeather';
+import { distanceFromCenter, distanceToBoundary, headingToCenter, isInTerritory, createTerritoryBoundary, TERRITORY_RADIUS_METERS, TERRITORY_CENTER } from './world/territory';
 
 const States = {
 	MENU: 'MENU',
@@ -118,10 +127,10 @@ function applySettings() {
 }
 
 let state = {
-	lon: 106.8272,
-	lat: -6.1754,
-	alt: 1000,
-	heading: 0,
+	lon: NEST_LOCATION.lon,
+	lat: NEST_LOCATION.lat,
+	alt: (NEST_LOCATION.elevation + NEST_LOCATION.treeHeight + 5) / 0.3048, // 5m above nest - treetop launch
+	heading: NEST_LOCATION.heading,
 	pitch: 0,
 	roll: 0,
 	speed: 0,
@@ -130,17 +139,7 @@ let state = {
 	weaponSystem: null
 };
 
-async function initUserLocation() {
-	try {
-		const data = await (await fetch('https://ipapi.co/json/')).json();
-		if (data.latitude && data.longitude) {
-			state.lat = data.latitude;
-			state.lon = data.longitude;
-		}
-	} catch (e) { }
-}
-
-initUserLocation();
+// Big Bear Valley is always the spawn location
 
 let currentRegionName = null;
 let lastGeocodeTime = 0;
@@ -155,20 +154,32 @@ let pauseStartTime = 0;
 
 let scene, camera, renderer;
 let planeModel;
-let jetFlames = [];
-let mixer, clock;
+let eagleGroup; // Fallback procedural eagle
+let eagleMixer; // AnimationMixer for GLB eagle
+let eagleFlapAction; // Wing flap animation action
+let clock;
 let physics = new PlanePhysics();
 let controller = new PlaneController();
 let hud = new HUD();
 let npcSystem;
 let weaponSystem;
 let dialogueSystem = new DialogueSystem();
+let ambientSound = new AmbientSoundSystem();
+let treeSystem;
+let waterSystem;
+let landmarkSystem;
+let citySystem;
+let trafficSystem;
+let nestSystem;
+let dayNightWeather;
+let territoryEntities = null;
+let territoryWarningActive = false;
 
 let fps = 0;
 let frameCount = 0;
 let lastFpsUpdate = 0;
 
-const BASE_PLANE_POS = new THREE.Vector3(0, -0.8, -2.75);
+const BASE_PLANE_POS = new THREE.Vector3(0, -0.5, -4.0);
 let visualOffset = new THREE.Vector3().copy(BASE_PLANE_POS);
 let visualRotation = new THREE.Euler(0, 0, 0);
 let boostRoll = 0;
@@ -216,7 +227,7 @@ function updateLoadingUI() {
 		msg = "Loading Failed. Please Refresh.";
 	} else if (!isAllLoaded) {
 		if (!loadingStatus.audio) msg = "Loading Audio...";
-		else if (!loadingStatus.model) msg = "Loading Aircraft Model...";
+		else if (!loadingStatus.model) msg = "Loading Eagle Model...";
 		else if (!loadingStatus.cesium) msg = "Loading Satellite Imagery...";
 		else if (!loadingStatus.globe) msg = "Loading Globe Surface...";
 	}
@@ -245,34 +256,40 @@ function updateLoadingUI() {
 async function initSounds() {
 	soundManager.init(camera);
 
+	const loadSafe = (name, url, loop, vol) =>
+		soundManager.loadSound(name, url, loop, vol).catch(e => {
+			console.warn(`Failed to load sound: ${name}`, e);
+			return null;
+		});
+
 	await Promise.all([
-		soundManager.loadSound('boost', '/assets/sounds/boost.mp3', false, 0.35),
-		soundManager.loadSound('throttle', '/assets/sounds/throttle.mp3', false, 0.4),
-		soundManager.loadSound('explode', '/assets/sounds/explode.mp3', false, 0.75),
-		soundManager.loadSound('explosion-1', '/assets/sounds/explosion-1.mp3', false, 0.8),
-		soundManager.loadSound('explosion-2', '/assets/sounds/explosion-2.mp3', false, 0.8),
-		soundManager.loadSound('explosion-3', '/assets/sounds/explosion-3.mp3', false, 0.8),
-		soundManager.loadSound('ambient-crash', '/assets/sounds/ambient.mp3', true, 0.5),
-		soundManager.loadSound('weapon-warning', '/assets/sounds/weapon-warning-1.mp3', false, 1.0),
-		soundManager.loadSound('jet-engine', '/assets/sounds/jet-engine.mp3', true, 0.5),
-		soundManager.loadSound('spawn', '/assets/sounds/spawn.mp3', false, 0.5),
-		soundManager.loadSound('roll', '/assets/sounds/roll.mp3', true, 0.75),
-		soundManager.loadSound('pitch', '/assets/sounds/pitch.mp3', true, 0.75),
-		soundManager.loadSound('button-click', '/assets/sounds/button-click.mp3', false, 1.0),
-		soundManager.loadSound('weapon-switch', '/assets/sounds/weapon-switch.mp3', false, 0.75),
-		soundManager.loadSound('button-hover', '/assets/sounds/button-hover.mp3', false, 0.25),
-		soundManager.loadSound('zoom-in', '/assets/sounds/zoom-in.mp3', false, 0.5),
-		soundManager.loadSound('missile-fire', '/assets/sounds/missile-firing-1.mp3', false, 0.75),
-		soundManager.loadSound('m61-firing', '/assets/sounds/m61-firing.mp3', true, 0.75),
-		soundManager.loadSound('rwr-tws', '/assets/sounds/rwr-tws.mp3', true, 0.2),
-		soundManager.loadSound('rwr-lock', '/assets/sounds/rwr-lock.mp3', false, 0.2),
-		soundManager.loadSound('wind', '/assets/sounds/wind.mp3', true, 0.25),
-		soundManager.loadSound('terrain-pull-up', '/assets/sounds/terrain-pull-up.mp3', false, 0.9),
-		soundManager.loadSound('warning', '/assets/sounds/warning.mp3', false, 0.6),
-		soundManager.loadSound('glitch-1', '/assets/sounds/glitch-transition-1.mp3', false, 0.25),
-		soundManager.loadSound('glitch-2', '/assets/sounds/glitch-transition-2.mp3', false, 0.25),
-		soundManager.loadSound('glitch-3', '/assets/sounds/glitch-transition-3.mp3', false, 0.25),
-		soundManager.loadSound('glitch-4', '/assets/sounds/glitch-transition-4.mp3', false, 0.25)
+		loadSafe('boost', './assets/sounds/boost.mp3', false, 0.35),
+		loadSafe('throttle', './assets/sounds/throttle.mp3', false, 0.4),
+		loadSafe('explode', './assets/sounds/explode.mp3', false, 0.75),
+		loadSafe('explosion-1', './assets/sounds/explosion-1.mp3', false, 0.8),
+		loadSafe('explosion-2', './assets/sounds/explosion-2.mp3', false, 0.8),
+		loadSafe('explosion-3', './assets/sounds/explosion-3.mp3', false, 0.8),
+		loadSafe('ambient-crash', './assets/sounds/ambient.mp3', true, 0.5),
+		loadSafe('weapon-warning', './assets/sounds/weapon-warning-1.mp3', false, 1.0),
+		loadSafe('jet-engine', './assets/sounds/jet-engine.mp3', true, 0.5),
+		loadSafe('spawn', './assets/sounds/spawn.mp3', false, 0.5),
+		loadSafe('roll', './assets/sounds/roll.mp3', true, 0.75),
+		loadSafe('pitch', './assets/sounds/pitch.mp3', true, 0.75),
+		loadSafe('button-click', './assets/sounds/button-click.mp3', false, 1.0),
+		loadSafe('weapon-switch', './assets/sounds/weapon-switch.mp3', false, 0.75),
+		loadSafe('button-hover', './assets/sounds/button-hover.mp3', false, 0.25),
+		loadSafe('zoom-in', './assets/sounds/zoom-in.mp3', false, 0.5),
+		loadSafe('missile-fire', './assets/sounds/missile-firing-1.mp3', false, 0.75),
+		loadSafe('m61-firing', './assets/sounds/m61-firing.mp3', true, 0.75),
+		loadSafe('rwr-tws', './assets/sounds/rwr-tws.mp3', true, 0.2),
+		loadSafe('rwr-lock', './assets/sounds/rwr-lock.mp3', false, 0.2),
+		loadSafe('wind', './assets/sounds/wind.mp3', true, 0.25),
+		loadSafe('terrain-pull-up', './assets/sounds/terrain-pull-up.mp3', false, 0.9),
+		loadSafe('warning', './assets/sounds/warning.mp3', false, 0.6),
+		loadSafe('glitch-1', './assets/sounds/glitch-transition-1.mp3', false, 0.25),
+		loadSafe('glitch-2', './assets/sounds/glitch-transition-2.mp3', false, 0.25),
+		loadSafe('glitch-3', './assets/sounds/glitch-transition-3.mp3', false, 0.25),
+		loadSafe('glitch-4', './assets/sounds/glitch-transition-4.mp3', false, 0.25)
 	]);
 
 	loadingStatus.audio = true;
@@ -339,65 +356,140 @@ function initThree() {
 
 	try { particles.init(scene, getViewer()); } catch (e) { }
 
-	initSounds().catch(err => console.error('Failed to init sounds', err));
+	// Initialize tree and water systems
+	try {
+		treeSystem = new TreeSystem(getViewer(), scene);
+	} catch (e) {
+		console.error('Failed to init tree system', e);
+	}
 
+	try {
+		waterSystem = new WaterSystem(getViewer(), scene);
+	} catch (e) {
+		console.error('Failed to init water system', e);
+	}
+
+	try {
+		landmarkSystem = new LandmarkSystem(getViewer(), scene);
+	} catch (e) {
+		console.error('Failed to init landmark system', e);
+	}
+
+	try {
+		citySystem = new CitySystem(getViewer(), scene);
+	} catch (e) {
+		console.error('Failed to init city system', e);
+	}
+
+	try {
+		trafficSystem = new TrafficSystem(getViewer(), scene);
+	} catch (e) {
+		console.error('Failed to init traffic system', e);
+	}
+
+	try {
+		nestSystem = new NestSystem(scene);
+	} catch (e) {
+		console.error('Failed to init nest system', e);
+	}
+
+	try {
+		dayNightWeather = new DayNightWeatherSystem(getViewer());
+	} catch (e) {
+		console.error('Failed to init day/night weather system', e);
+	}
+
+	initSounds().catch(err => {
+		console.error('Failed to init sounds', err);
+	}).finally(() => {
+		loadingStatus.audio = true;
+		updateLoadingUI();
+	});
+
+	// Load Asim3d animated eagle model (rigged, skeletal animation)
 	const loader = new GLTFLoader();
-	loader.load('/assets/models/f-15.glb', (gltf) => {
-		const mesh = gltf.scene;
+	loader.load('./assets/models/eagle.glb', (gltf) => {
+		try {
+			const eagleMesh = gltf.scene;
 
-		planeModel = new THREE.Group();
-		planeModel.add(mesh);
-		scene.add(planeModel);
+			planeModel = new THREE.Group();
+			planeModel.add(eagleMesh);
+			scene.add(planeModel);
 
-		planeModel.layers.set(1);
-		planeModel.traverse(child => {
-			child.layers.set(1);
-		});
+			// Center the model by its bounding box
+			const box = new THREE.Box3().setFromObject(eagleMesh);
+			const center = box.getCenter(new THREE.Vector3());
+			const size = new THREE.Vector3();
+			box.getSize(size);
 
-		const box = new THREE.Box3().setFromObject(mesh);
-		const center = box.getCenter(new THREE.Vector3());
-		mesh.position.sub(center);
+			// Move the entire scene so the eagle is centered at origin
+			eagleMesh.position.set(-center.x, -center.y, -center.z);
 
-		planeModel.position.copy(BASE_PLANE_POS);
-		planeModel.scale.set(0.2, 0.2, 0.2);
+			// Rotate 180° so eagle faces away from camera (head forward)
+			eagleMesh.rotation.y = Math.PI;
 
-		const flameL = new JetFlame();
-		const flameR = new JetFlame();
+			// Scale eagle large and centered
+			const maxDim = Math.max(size.x, size.y, size.z);
+			const scl = 5.0 / maxDim;
+			planeModel.scale.set(scl, scl, scl);
 
-		flameL.group.position.set(-0.4, -0.065, 5);
-		flameR.group.position.set(0.4, -0.065, 5);
+			planeModel.position.copy(BASE_PLANE_POS);
 
+			// Set ALL children to layer 1 (including bones for SkinnedMesh)
+			planeModel.layers.set(1);
+			planeModel.traverse(child => {
+				child.layers.set(1);
+				// Ensure frustum culling doesn't hide the skinned mesh
+				if (child.isSkinnedMesh) {
+					child.frustumCulled = false;
+				}
+			});
 
-		planeModel.add(flameL.group);
-		planeModel.add(flameR.group);
-		jetFlames.push(flameL, flameR);
-
-		weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
-		weaponSystem.onKill = (npc) => {
-			state.score += 1000;
-			try { soundManager.play('glitch-random'); } catch (e) { }
-			if (hud) {
-				hud.showKillNotification(npc.name, 1000);
+			// Set up skeletal animation
+			eagleMixer = new THREE.AnimationMixer(eagleMesh);
+			if (gltf.animations && gltf.animations.length > 0) {
+				eagleFlapAction = eagleMixer.clipAction(gltf.animations[0]);
+				eagleFlapAction.play();
 			}
-		};
 
-		planeModel.traverse(child => {
-			child.layers.set(1);
-		});
-
-		mixer = new THREE.AnimationMixer(mesh);
-		const clip = THREE.AnimationClip.findByName(gltf.animations, 'flight_mode');
-		if (clip) {
-			const action = mixer.clipAction(clip);
-			action.setLoop(THREE.LoopOnce);
-			action.clampWhenFinished = true;
-			action.play();
+			weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
+			weaponSystem.onKill = (npc) => {
+				const pts = npc.score || 500;
+				state.score += pts;
+				try { soundManager.play('glitch-random'); } catch (e) { }
+				if (hud) {
+					hud.showKillNotification(npc.name, pts);
+				}
+			};
+		} catch (e) {
+			console.error('Failed to setup eagle model', e);
 		}
 
 		loadingStatus.model = true;
 		updateLoadingUI();
 	}, undefined, (error) => {
-		console.error('Error loading model:', error);
+		console.error('Eagle model load failed, using fallback', error);
+		try {
+			eagleGroup = createEagleModel();
+			planeModel = new THREE.Group();
+			planeModel.add(eagleGroup);
+			scene.add(planeModel);
+			planeModel.layers.set(1);
+			planeModel.traverse(child => child.layers.set(1));
+			planeModel.position.copy(BASE_PLANE_POS);
+			planeModel.scale.set(1.5, 1.5, 1.5);
+			weaponSystem = new WeaponSystem(getViewer(), scene, planeModel);
+			weaponSystem.onKill = (npc) => {
+				const pts = npc.score || 500;
+				state.score += pts;
+				if (hud) hud.showKillNotification(npc.name, pts);
+			};
+			planeModel.traverse(child => child.layers.set(1));
+		} catch (e2) {
+			console.error('Fallback eagle also failed', e2);
+		}
+		loadingStatus.model = true;
+		updateLoadingUI();
 	});
 }
 
@@ -417,6 +509,19 @@ function update(dt) {
 	state.isBoosting = physicsResult.isBoosting;
 	state.weaponSystem = weaponSystem;
 	state.npcs = npcSystem ? npcSystem.npcs : [];
+
+	// Eagle-specific flight state
+	state.isGliding = physicsResult.isGliding;
+	state.isFlapping = physicsResult.isFlapping;
+	state.flapStrength = physicsResult.flapStrength;
+	state.wingSpread = physicsResult.wingSpread;
+	state.inThermal = physicsResult.inThermal;
+	state.thermalStrength = physicsResult.thermalStrength;
+	state.verticalSpeed = physicsResult.verticalSpeed;
+	state.liftForce = physicsResult.liftForce;
+	state.isTurbo = physicsResult.isTurbo;
+	state.turboWindup = physicsResult.turboWindup;
+	state.weatherConditions = dayNightWeather ? dayNightWeather.getConditions() : null;
 
 	if (weaponSystem) {
 		if (input.weaponIndex !== -1) {
@@ -457,35 +562,9 @@ function update(dt) {
 	checkCrash();
 	checkGPWS();
 
-	if (soundManager.isPlaying('jet-engine')) {
-		const minSpeed = 100;
-		const maxSpeed = 1000;
-		const minVol = 0.5;
-		const maxVol = 0.6;
-		const speedFactor = Math.max(0, Math.min(1.0, (state.speed - minSpeed) / (maxSpeed - minSpeed)));
-		const engineVol = minVol + speedFactor * (maxVol - minVol);
-		soundManager.setVolume('jet-engine', engineVol);
-	}
-
-	if (state.isBoosting && !lastIsBoosting) {
-		soundManager.play('boost');
-	}
-
-	if (state.throttle > lastThrottleLevel + 0.01) {
-		if (!soundManager.isPlaying('throttle')) {
-			soundManager.play('throttle');
-		}
-	}
-	lastThrottleLevel = state.throttle;
-
-	if (Math.abs(input.pitch) > 0.5) {
-		if (!soundManager.isPlaying('pitch')) {
-			soundManager.play('pitch', 0.1);
-		}
-	} else {
-		if (soundManager.isPlaying('pitch')) {
-			soundManager.stop('pitch', 0.1);
-		}
+	// Ambient sound system handles all flight audio
+	if (ambientSound) {
+		try { ambientSound.update(dt, state); } catch (e) { }
 	}
 
 	if (Math.abs(input.roll) > 0.5 || Math.abs(input.yaw) > 0.5) {
@@ -525,6 +604,49 @@ function update(dt) {
 	if (npcSystem) {
 		npcSystem.update(dt, state);
 	}
+
+	// Update tree and water systems
+	if (treeSystem) {
+		try { treeSystem.update(dt, state); } catch (e) { }
+	}
+	if (waterSystem) {
+		try { waterSystem.update(dt, state); } catch (e) { }
+	}
+	if (landmarkSystem) {
+		try { landmarkSystem.update(dt, state); } catch (e) { }
+	}
+	if (citySystem) {
+		try { citySystem.update(dt, state); } catch (e) { }
+	}
+	if (trafficSystem) {
+		try { trafficSystem.update(dt, state); } catch (e) { }
+	}
+	if (nestSystem) {
+		try { nestSystem.update(dt, state); } catch (e) { }
+	}
+	if (dayNightWeather) {
+		try { dayNightWeather.update(dt); } catch (e) { }
+	}
+
+	// Territory boundary check - warn if approaching edge
+	const distToEdge = distanceToBoundary(state.lon, state.lat);
+	const distToEdgeMiles = distToEdge / 1609.34;
+	if (distToEdgeMiles < 20) {
+		// Turn eagle back toward center when at boundary
+		if (distToEdge <= 0) {
+			// Outside territory - force turn back
+			const centerHeading = headingToCenter(state.lon, state.lat);
+			state.heading = THREE.MathUtils.lerp(state.heading, centerHeading, dt * 2);
+			physics.heading = state.heading;
+		}
+		if (!territoryWarningActive) {
+			territoryWarningActive = true;
+			hud.showRegion('TERRITORY BOUNDARY - TURN BACK');
+		}
+	} else {
+		territoryWarningActive = false;
+	}
+
 	hud.update(state, currentState === States.FLYING ? (npcSystem ? npcSystem.npcs : []) : []);
 
 	if (planeModel) {
@@ -614,11 +736,7 @@ function update(dt) {
 		const combinedQ = orbitQ.clone().invert().multiply(flightLagQ);
 		planeModel.quaternion.copy(combinedQ);
 
-		if (jetFlames.length > 0) {
-			jetFlames.forEach(flame => {
-				flame.update(state.throttle, state.isBoosting, clock.getElapsedTime(), dt);
-			});
-		}
+		// Eagle has no jet flames
 	}
 }
 
@@ -697,6 +815,7 @@ function checkCrash() {
 		if (weaponsHud) weaponsHud.classList.add('hidden');
 		threeContainer.classList.add('hidden');
 		crashMenu.classList.remove('hidden');
+		if (controller.isMobile) controller.setMobileVisible(false);
 		hud.update(state, []);
 
 		stopAllFlyingSounds(0.1);
@@ -747,7 +866,24 @@ function animate() {
 			hud.updatePauseMenu(state, currentRegionName, npcSystem ? npcSystem.npcs : []);
 		}
 
-		if (mixer) mixer.update(dt);
+		// Animate eagle
+		if (eagleMixer) {
+			if (eagleFlapAction) {
+				// Drive animation speed based on flight state
+				if (state.isFlapping && state.flapStrength > 0) {
+					eagleFlapAction.timeScale = 1.0 + state.flapStrength * 1.5;
+				} else if (state.isGliding) {
+					eagleFlapAction.timeScale = 0.3;
+				} else if (state.isBoosting || state.isTurbo) {
+					eagleFlapAction.timeScale = 0.1;
+				} else {
+					eagleFlapAction.timeScale = 0.5;
+				}
+			}
+			eagleMixer.update(dt);
+		} else if (eagleGroup) {
+			updateEagleAnimation(eagleGroup, dt, state);
+		}
 
 		try { if (currentState === States.FLYING) particles.update(dt); } catch (e) { }
 
@@ -839,8 +975,14 @@ function setupModalListeners() {
 	});
 }
 
-document.getElementById('startBtn').onclick = () => {
+document.getElementById('startBtn').onclick = async () => {
 	closeAllModals();
+
+	// On mobile, request orientation permission on first interaction (iOS requires user gesture)
+	if (controller.isMobile && !controller.tiltEnabled) {
+		await controller.requestOrientationPermission();
+	}
+
 	mainMenu.classList.add('hidden');
 	enterSpawnPicking(false);
 };
@@ -856,6 +998,7 @@ document.getElementById('resumeBtn').onclick = () => {
 	currentState = States.FLYING;
 	if (dialogueSystem) dialogueSystem.resume();
 	resumeGameplaySounds();
+	if (controller.isMobile) controller.setMobileVisible(true);
 };
 
 document.getElementById('restartBtn').onclick = () => {
@@ -909,7 +1052,7 @@ function enterSpawnPicking(useVignette = true) {
 		}
 		if (instructionText) {
 			instructionText.style.display = 'block';
-			instructionText.textContent = 'CLICK ANYWHERE ON THE MAP TO CHOOSE SPAWN POINT';
+			instructionText.textContent = 'CLICK ANYWHERE TO CHOOSE YOUR HUNTING GROUNDS';
 		}
 		if (resultsContainer) {
 			resultsContainer.style.display = 'none';
@@ -1169,7 +1312,7 @@ document.getElementById('confirmSpawnBtn').onclick = () => {
 
 		setControlsEnabled(false);
 
-		state.speed = 100;
+		state.speed = 12; // Gentle launch speed - eagle pushes off from perch
 		state.pitch = 0;
 		state.roll = 0;
 
@@ -1197,6 +1340,9 @@ document.getElementById('confirmSpawnBtn').onclick = () => {
 		controller.reset();
 		physics = new PlanePhysics();
 		physics.reset(state.lon, state.lat, state.alt, state.heading, state.pitch, state.roll);
+
+		// Clear tree positions for new spawn location
+		if (treeSystem) treeSystem.clear();
 
 		hud.resetTime();
 		hud.resizeMinimap();
@@ -1233,8 +1379,28 @@ document.getElementById('confirmSpawnBtn').onclick = () => {
 				threeContainer.classList.remove('hidden');
 				hud.resizeMinimap();
 				currentState = States.FLYING;
-				soundManager.play('jet-engine', 1.0);
+				// Start ambient nature sounds instead of jet engine
+				soundManager.play('wind', 0.5);
+				if (ambientSound) ambientSound.startFlight();
 				if (vignette) vignette.style.opacity = '0';
+
+				// Show mobile controls when entering flight
+				if (controller.isMobile) {
+					controller.setMobileVisible(true);
+					controller.calibrateTilt();
+					// Request fullscreen on mobile for better experience
+					try {
+						if (document.documentElement.requestFullscreen) {
+							document.documentElement.requestFullscreen().catch(() => {});
+						} else if (document.documentElement.webkitRequestFullscreen) {
+							document.documentElement.webkitRequestFullscreen();
+						}
+						// Lock to landscape if supported
+						if (screen.orientation && screen.orientation.lock) {
+							screen.orientation.lock('landscape').catch(() => {});
+						}
+					} catch (e) {}
+				}
 
 				if (dialogueSystem) {
 					dialogueSystem.start();
@@ -1265,6 +1431,7 @@ window.addEventListener('keydown', (e) => {
 			hud.resizeMinimap();
 			pauseGameplaySounds();
 			hud.update(state, []);
+			if (controller.isMobile) controller.setMobileVisible(false);
 		} else if (currentState === States.PAUSED) {
 			currentState = States.FLYING;
 			if (dialogueSystem) dialogueSystem.resume();
@@ -1273,6 +1440,7 @@ window.addEventListener('keydown', (e) => {
 			const weaponsHud = document.getElementById('weapons-hud');
 			if (weaponsHud) weaponsHud.classList.remove('hidden');
 			resumeGameplaySounds();
+			if (controller.isMobile) controller.setMobileVisible(true);
 		} else if (currentState === States.PICK_SPAWN && key === 'escape') {
 			exitSpawnPicking();
 		}
@@ -1292,6 +1460,7 @@ document.addEventListener('visibilitychange', () => {
 		hud.resizeMinimap();
 		pauseGameplaySounds();
 		hud.update(state, []);
+		if (controller.isMobile) controller.setMobileVisible(false);
 	}
 });
 
@@ -1312,25 +1481,42 @@ const viewer = initCesium();
 loadingStatus.cesium = true;
 updateLoadingUI();
 
-let globeLoadingStarted = false;
-const unregisterGlobeTracker = viewer.scene.postRender.addEventListener(() => {
-	const tilesLoaded = viewer.scene.globe.tilesLoaded;
-
-	if (!tilesLoaded) {
-		globeLoadingStarted = true;
+// Fallback: if globe hasn't loaded after 8s, enable start anyway
+setTimeout(() => {
+	if (!loadingStatus.globe) {
+		console.warn('Globe loading timeout - enabling start button anyway');
+		loadingStatus.globe = true;
+		updateLoadingUI();
 	}
+}, 8000);
 
-	if (tilesLoaded) {
-		const surface = viewer.scene.globe._surface;
-		const hasTiles = surface && surface._tilesToRender && surface._tilesToRender.length > 0;
+let globeLoadingStarted = false;
+try {
+	const unregisterGlobeTracker = viewer.scene.postRender.addEventListener(() => {
+		try {
+			const tilesLoaded = viewer.scene.globe.tilesLoaded;
 
-		if (hasTiles) {
+			if (!tilesLoaded) {
+				globeLoadingStarted = true;
+			}
+
+			if (tilesLoaded && globeLoadingStarted) {
+				loadingStatus.globe = true;
+				updateLoadingUI();
+				unregisterGlobeTracker();
+			}
+		} catch (e) {
+			// If internal API fails, just mark as loaded
 			loadingStatus.globe = true;
 			updateLoadingUI();
 			unregisterGlobeTracker();
 		}
-	}
-});
+	});
+} catch (e) {
+	console.warn('Globe tracker setup failed', e);
+	loadingStatus.globe = true;
+	updateLoadingUI();
+}
 
 viewer.scene.globe.tileLoadProgressEvent.addEventListener((queueLength) => {
 	if (loadingIndicator && loadingText) {
@@ -1370,7 +1556,15 @@ initialCameraView = {
 };
 
 initThree();
-npcSystem = new NPCSystem(viewer, scene, new GLTFLoader());
+npcSystem = new NPCSystem(viewer, scene, null);
+
+// Create territory boundary on the map
+try {
+	territoryEntities = createTerritoryBoundary(viewer);
+} catch (e) {
+	console.error('Failed to create territory boundary', e);
+}
+
 setupSpawnPicker();
 setupLocationSearch();
 loadSettings();
@@ -1393,3 +1587,4 @@ window.addEventListener('resize', () => {
 window.addEventListener('contextmenu', (e) => {
 	e.preventDefault();
 }, false);
+// cache bust 1774919100

@@ -34,6 +34,17 @@ export class HUD {
 
 		this.pullUpElem = document.getElementById('pull-up-warning');
 
+		// Eagle flight status elements
+		this.flightModeElem = document.getElementById('flight-mode-indicator');
+		this.thermalIndicator = document.getElementById('thermal-indicator');
+		this.wingSpreadBar = document.getElementById('wing-spread-bar');
+		this.liftValueElem = document.getElementById('lift-value');
+		this.vspeedValueElem = document.getElementById('vspeed-value');
+
+		// Weather HUD
+		this.weatherConditionElem = document.getElementById('weather-condition');
+		this.weatherWindElem = document.getElementById('weather-wind');
+
 		this.killNotifContainer = document.getElementById('kill-notification-container');
 		this.killTextElem = document.getElementById('kill-text');
 		this.killScoreElem = document.getElementById('kill-score');
@@ -103,15 +114,15 @@ export class HUD {
 		innerRing.style.cssText = `
 			position:absolute; left:50%; top:50%; width:76px; height:76px; transform:translate(-50%,-50%);
 			border-radius:50%;
-			border:2px solid #0f0;
+			border:2px solid #d4a017;
 		`;
 
 		const centerDot = document.createElement('div');
-		centerDot.style.cssText = `position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:10px; height:10px; border-radius:50%; background:#0f0;`;
+		centerDot.style.cssText = `position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:10px; height:10px; border-radius:50%; background:#d4a017;`;
 
 		const makeTick = (left, top, w, h, translate) => {
 			const t = document.createElement('div');
-			t.style.cssText = `position:absolute; left:${left}; top:${top}; width:${w}; height:${h}; background:#0f0; transform:${translate};`;
+			t.style.cssText = `position:absolute; left:${left}; top:${top}; width:${w}; height:${h}; background:#d4a017; transform:${translate};`;
 			return t;
 		};
 
@@ -209,7 +220,7 @@ export class HUD {
 			this.killNotifContainer.classList.remove('hidden');
 			this.killNotifContainer.classList.remove('kill-notification-exit');
 
-			const targetText = `${npcName} DESTROYED`;
+			const targetText = `${npcName} CAUGHT!`;
 			const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
 			let iteration = 0;
 			if (this.glitchInterval) clearInterval(this.glitchInterval);
@@ -275,6 +286,78 @@ export class HUD {
 		}, 4000);
 	}
 
+	updateEagleStatus(state) {
+		// Flight mode indicator
+		if (this.flightModeElem) {
+			let mode = 'SOARING';
+			let modeClass = '';
+
+			if (state.isTurbo || state.turboWindup > 0.1) {
+				const knots = Math.round(state.speed);
+				mode = `TURBO ${knots} KTS`;
+				modeClass = 'turbo';
+			} else if (state.isBoosting) {
+				mode = 'DIVING';
+				modeClass = 'diving';
+			} else if (state.isFlapping) {
+				mode = 'FLAPPING';
+				modeClass = 'flapping';
+			} else if (state.isGliding) {
+				mode = 'GLIDING';
+				modeClass = 'gliding';
+			} else if (state.inThermal) {
+				mode = 'RIDING THERMAL';
+				modeClass = 'thermal';
+			}
+
+			this.flightModeElem.textContent = mode;
+			this.flightModeElem.className = modeClass;
+		}
+
+		// Thermal indicator
+		if (this.thermalIndicator) {
+			if (state.inThermal) {
+				this.thermalIndicator.classList.remove('hidden');
+				const strength = Math.round((state.thermalStrength || 0) * 100);
+				this.thermalIndicator.textContent = `THERMAL ${strength}%`;
+			} else {
+				this.thermalIndicator.classList.add('hidden');
+			}
+		}
+
+		// Wing spread bar
+		if (this.wingSpreadBar) {
+			const spread = (state.wingSpread || 1.0) * 100;
+			this.wingSpreadBar.style.width = `${spread}%`;
+		}
+
+		// Lift value
+		if (this.liftValueElem) {
+			const lift = state.liftForce || 0;
+			this.liftValueElem.textContent = lift.toFixed(1);
+		}
+
+		// Vertical speed
+		if (this.vspeedValueElem) {
+			const vs = state.verticalSpeed || 0;
+			const vsFpm = Math.round(vs * 196.85); // m/s to ft/min approx
+			this.vspeedValueElem.textContent = `${vsFpm > 0 ? '+' : ''}${vsFpm}`;
+			this.vspeedValueElem.className = vsFpm > 10 ? 'climbing' : (vsFpm < -10 ? 'descending' : '');
+		}
+	}
+
+	updateWeatherDisplay(state) {
+		if (state.weatherConditions) {
+			const c = state.weatherConditions;
+			if (this.weatherConditionElem) {
+				this.weatherConditionElem.textContent = `${c.daypartName} | ${c.weatherName}`;
+			}
+			if (this.weatherWindElem) {
+				this.weatherWindElem.textContent = `WIND ${c.windSpeed}kt ${c.windDirection}°`;
+			}
+		}
+	}
+
 	setPullUpWarning(shouldShow) {
 		if (this.pullUpElem) {
 			if (shouldShow) {
@@ -328,16 +411,16 @@ export class HUD {
 			crosshair.style.cssText = 'position:absolute; top:50%; left:50%; width:120px; height:48px; transform:translate(-50%,-50%); pointer-events:none;';
 
 			const ring = document.createElement('div');
-			ring.style.cssText = 'position:absolute; left:50%; top:50%; width:12px; height:12px; transform:translate(-50%,-50%); border-radius:50%; border:2px solid #0f0; background:transparent;';
+			ring.style.cssText = 'position:absolute; left:50%; top:50%; width:12px; height:12px; transform:translate(-50%,-50%); border-radius:50%; border:2px solid #d4a017; background:transparent;';
 
 			const leftLine = document.createElement('div');
-			leftLine.style.cssText = 'position:absolute; top:50%; left:calc(50% - 6px - 20px); width:20px; height:2px; transform:translateY(-50%); background:#0f0;';
+			leftLine.style.cssText = 'position:absolute; top:50%; left:calc(50% - 6px - 20px); width:20px; height:2px; transform:translateY(-50%); background:#d4a017;';
 
 			const rightLine = document.createElement('div');
-			rightLine.style.cssText = 'position:absolute; top:50%; left:calc(50% + 6px); width:20px; height:2px; transform:translateY(-50%); background:#0f0;';
+			rightLine.style.cssText = 'position:absolute; top:50%; left:calc(50% + 6px); width:20px; height:2px; transform:translateY(-50%); background:#d4a017;';
 
 			const topTick = document.createElement('div');
-			topTick.style.cssText = 'position:absolute; left:50%; top:calc(50% - 6px - 12px); width:2px; height:12px; transform:translateX(-50%); background:#0f0;';
+			topTick.style.cssText = 'position:absolute; left:50%; top:calc(50% - 6px - 12px); width:2px; height:12px; transform:translateX(-50%); background:#d4a017;';
 
 			crosshair.appendChild(leftLine);
 			crosshair.appendChild(rightLine);
@@ -361,7 +444,7 @@ export class HUD {
 					left: 30%;
 					width: 40%;
 					height: 1px;
-					background: rgba(0, 255, 0, 0.5);
+					background: rgba(212, 160, 23, 0.5);
 					top: ${50 - i}% ;
 					text-align: center;
 					font-size: 10px;
@@ -421,7 +504,7 @@ export class HUD {
 
 		ctx.clearRect(0, 0, w, h);
 
-		ctx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
+		ctx.strokeStyle = 'rgba(212, 160, 23, 0.2)';
 		ctx.lineWidth = 1;
 		const gridSize = 50;
 
@@ -440,7 +523,7 @@ export class HUD {
 		}
 		ctx.stroke();
 
-		ctx.strokeStyle = '#0f0';
+		ctx.strokeStyle = '#d4a017';
 		ctx.lineWidth = 2;
 		const size = 15;
 		ctx.beginPath();
@@ -448,9 +531,9 @@ export class HUD {
 		ctx.moveTo(centerX, centerY - size); ctx.lineTo(centerX, centerY + size);
 		ctx.stroke();
 
-		ctx.fillStyle = '#0f0';
+		ctx.fillStyle = '#d4a017';
 		ctx.font = '12px AceCombat';
-		ctx.fillText("YOU", centerX + 20, centerY + 5);
+		ctx.fillText("SHADOW", centerX + 20, centerY + 5);
 
 		const verticalMeters = zoomAlt * 1.1547;
 		const pixelsPerMeter = h / verticalMeters;
@@ -476,7 +559,7 @@ export class HUD {
 
 			ctx.fillStyle = '#fff';
 			ctx.font = '10px AceCombat';
-			ctx.fillText(npc.name || "BOGEY", px + 10, py + 5);
+			ctx.fillText(npc.name || "PREY", px + 10, py + 5);
 		});
 	}
 
@@ -517,12 +600,14 @@ export class HUD {
 		const speedFactor = this.minimapRange * 2;
 		let zoomAlt = baseZoom + (state.speed * speedFactor);
 		if (state.isBoosting) zoomAlt *= 1.2;
+		if (state.isTurbo) zoomAlt *= 3.0; // Much wider minimap view at turbo speeds
 		this.currentZoom = zoomAlt;
 		setMinimapCamera(state.lon, state.lat, zoomAlt, this.smoothedHeading);
 
 		const isBoosting = state.isBoosting || false;
+		const isTurbo = state.isTurbo || false;
 		if (this.vignette) {
-			this.vignette.style.opacity = isBoosting ? "1" : "0";
+			this.vignette.style.opacity = (isBoosting || isTurbo) ? "1" : "0";
 		}
 
 		const pitchDiff = getAngleDiff(state.pitch, this.smoothedPitch);
@@ -539,12 +624,17 @@ export class HUD {
 			const shiftX = Math.max(-maxShift, Math.min(maxShift, -rollDiff * 1.5 - yawDiff * 20.0));
 			const shiftY = Math.max(-maxShift, Math.min(maxShift, pitchDiff * 3.0 + throttleDiff * 15.0));
 
-			const targetBoostScale = isBoosting ? 1.02 : 1.0;
+			const targetBoostScale = isTurbo ? 1.04 : (isBoosting ? 1.02 : 1.0);
 			this.smoothedBoostScale = this.smoothedBoostScale + (targetBoostScale - this.smoothedBoostScale) * 0.1;
 
 			const scale = (1 + (throttleDiff * 0.25)) * this.smoothedBoostScale;
 
-			if (isBoosting) {
+			if (isTurbo) {
+				// Heavy turbo shake - speed lines feel
+				const time = Date.now() * 0.06;
+				this.currentShakeX = Math.sin(time * 2.0) * 3 + Math.cos(time * 3.1) * 2;
+				this.currentShakeY = Math.cos(time * 2.3) * 3 + Math.sin(time * 3.5) * 2;
+			} else if (isBoosting) {
 				const time = Date.now() * 0.05;
 				this.currentShakeX = Math.sin(time * 1.5) * 2 + Math.cos(time * 2.1) * 1.5;
 				this.currentShakeY = Math.cos(time * 1.7) * 2 + Math.sin(time * 2.3) * 1.5;
@@ -557,6 +647,10 @@ export class HUD {
 		}
 
 		this.speedElem.innerText = Math.round(state.speed).toString().padStart(3, '0');
+
+		// Update eagle flight status indicators
+		this.updateEagleStatus(state);
+		this.updateWeatherDisplay(state);
 
 		if (state.weaponSystem) {
 			this.updateWeapons(state.weaponSystem);
@@ -655,7 +749,7 @@ export class HUD {
 		const heading = this.smoothedHeading;
 		ctx.rotate(-heading * Math.PI / 180);
 
-		ctx.strokeStyle = 'rgba(0, 255, 0, 0.35)';
+		ctx.strokeStyle = 'rgba(212, 160, 23, 0.35)';
 		ctx.lineWidth = 1.0;
 
 		const metersPerGrid = this.minimapRange * 1000;
@@ -717,7 +811,7 @@ export class HUD {
 		const edgeX = centerX - pad;
 		const edgeY = centerY - pad;
 
-		ctx.strokeStyle = 'rgba(0, 255, 0, 0.7)';
+		ctx.strokeStyle = 'rgba(212, 160, 23, 0.7)';
 		ctx.lineWidth = 1.2;
 		ctx.beginPath();
 		ctx.moveTo(0, centerY);
@@ -740,7 +834,7 @@ export class HUD {
 		ctx.lineTo(centerX + Math.sin(halfHFov) * fovLineLen, centerY - Math.cos(halfHFov) * fovLineLen);
 		ctx.stroke();
 
-		ctx.fillStyle = '#0f0';
+		ctx.fillStyle = '#d4a017';
 		ctx.font = `bold 16px ${getComputedStyle(document.body).fontFamily}`;
 		ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
 		ctx.shadowBlur = 4;
@@ -774,7 +868,7 @@ export class HUD {
 
 		ctx.save();
 		ctx.translate(centerX, centerY);
-		ctx.fillStyle = '#0f0';
+		ctx.fillStyle = '#d4a017';
 		ctx.shadowBlur = 0;
 		ctx.beginPath();
 		ctx.moveTo(0, -12);
@@ -784,7 +878,7 @@ export class HUD {
 		ctx.closePath();
 		ctx.fill();
 
-		ctx.strokeStyle = 'rgba(0, 255, 0, 0.7)';
+		ctx.strokeStyle = 'rgba(212, 160, 23, 0.7)';
 		ctx.lineWidth = 1.2;
 		ctx.beginPath();
 		ctx.arc(0, 0, circleRadius, 0, Math.PI * 2);
@@ -793,7 +887,7 @@ export class HUD {
 		ctx.restore();
 
 		const sweepTime = (Date.now() / 1500) % 1;
-		ctx.strokeStyle = `rgba(0, 255, 0, ${0.7 * (1 - sweepTime)})`;
+		ctx.strokeStyle = `rgba(212, 160, 23, ${0.7 * (1 - sweepTime)})`;
 		ctx.lineWidth = 1.2;
 		ctx.beginPath();
 		ctx.arc(centerX, centerY, sweepTime * circleRadius, 0, Math.PI * 2);
@@ -910,11 +1004,11 @@ export class HUD {
 			marker.lockBox.style.display = 'block';
 			if (ws.lockStatus === 'LOCKED') {
 				marker.lockBox.classList.remove('locking-blink');
-				marker.lockBox.style.borderColor = '#0f0';
-				marker.lockBox.innerHTML = '<span style="position:absolute; top:-20px; left:50%; transform:translateX(-50%); font-weight:bold; color:#0f0; font-size:12px; text-shadow: 0 0 8px rgba(0, 255, 0, 0.8);">LOCK</span>';
+				marker.lockBox.style.borderColor = '#d4a017';
+				marker.lockBox.innerHTML = '<span style="position:absolute; top:-20px; left:50%; transform:translateX(-50%); font-weight:bold; color:#d4a017; font-size:12px; text-shadow: 0 0 8px rgba(212, 160, 23, 0.8);">TARGET</span>';
 			} else if (ws.lockStatus === 'LOCKING') {
 				marker.lockBox.classList.add('locking-blink');
-				marker.lockBox.style.borderColor = '#0f0';
+				marker.lockBox.style.borderColor = '#d4a017';
 				marker.lockBox.innerHTML = '';
 			}
 		} else {

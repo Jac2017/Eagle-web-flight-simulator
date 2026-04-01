@@ -13,11 +13,11 @@ export class WeaponSystem {
 		this.playerModel = playerModel;
 
 		this.weapons = [
-			{ id: 'gun', name: 'M61A1 CANNON', ammo: Infinity, maxAmmo: Infinity, fireRate: 0.05, lastFire: 0 },
-			{ id: 'missile', name: 'AIM-9 SIDEWINDER', ammo: 50, maxAmmo: 50, fireRate: 1.0, lastFire: 0, type: 'AIM-9' }
+			{ id: 'gun', name: 'TALON STRIKE', ammo: Infinity, maxAmmo: Infinity, fireRate: 0.3, lastFire: 0 },
+			{ id: 'missile', name: 'DIVE ATTACK', ammo: 30, maxAmmo: 30, fireRate: 2.0, lastFire: 0, type: 'DIVE' }
 		];
 
-		this.flareWeapon = { id: 'flare', name: 'MJU-7A', ammo: 30, maxAmmo: 30, fireRate: 0.2, lastFire: 0 };
+		this.flareWeapon = { id: 'flare', name: 'EAGLE SCREECH', ammo: 20, maxAmmo: 20, fireRate: 0.5, lastFire: 0 };
 
 		this.selectedWeaponIndex = 0;
 		this.projectiles = [];
@@ -29,7 +29,7 @@ export class WeaponSystem {
 		this.gunHeat = 0;
 
 		this.lockTime = 0;
-		this.lockRequiredTime = 2.0;
+		this.lockRequiredTime = 1.5;
 		this.lockStatus = 'NONE';
 		this.lockingTarget = null;
 

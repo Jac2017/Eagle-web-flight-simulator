@@ -5,8 +5,21 @@ let miniViewer;
 let pauseMiniViewer;
 
 export function initCesium() {
+	// Use Cesium Ion token if available, otherwise fall back to bundled textures
+	// Users should set their own token from https://ion.cesium.com/ (free)
+	Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzMzA1M2Q0MC01YzY1LTRkNDMtYWYzMS05MDdmZmI2MzAwYjYiLCJpZCI6NDA5NTYwLCJpYXQiOjE3NzQ1NDA1MjR9.szCoX8ALGsZ-jqCF6lvDtejplRGt2AJmQjZ2G7_51G0';
+
+	let terrainOption;
+	let baseLayerOption;
+	try {
+		terrainOption = Cesium.Terrain.fromWorldTerrain();
+	} catch (e) {
+		console.warn('Cesium World Terrain unavailable, using ellipsoid');
+		terrainOption = undefined;
+	}
+
 	viewer = new Cesium.Viewer("cesiumContainer", {
-		terrain: Cesium.Terrain.fromWorldTerrain(),
+		terrain: terrainOption,
 		timeline: false,
 		animation: false,
 		baseLayerPicker: false,
@@ -90,6 +103,16 @@ export function initCesium() {
 
 		v._cesiumWidget._creditContainer.style.display = "none";
 	});
+
+	// Set globe base color so it's not black if tiles fail to load
+	viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#1a3a1a');
+
+	// Handle terrain provider errors gracefully
+	try {
+		if (viewer.scene.globe.tileFailed) {
+			viewer.scene.globe.tileFailed.addEventListener(() => {});
+		}
+	} catch (e) { /* tileFailed not available in this version */ }
 
 	[miniViewer, pauseMiniViewer].forEach(v => {
 		v.scene.globe.enableLighting = false;
