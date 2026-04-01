@@ -425,6 +425,9 @@ function initThree() {
 			// Move the entire scene so the eagle is centered at origin
 			eagleMesh.position.set(-center.x, -center.y, -center.z);
 
+			// Rotate 180° so eagle faces away from camera (head forward)
+			eagleMesh.rotation.y = Math.PI;
+
 			// Scale: the model is ~191 units wide. We want ~0.3 units in scene.
 			const maxDim = Math.max(size.x, size.y, size.z);
 			const scl = 0.3 / maxDim;
